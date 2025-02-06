@@ -17,17 +17,53 @@ void MainWindow::on_pushButtonLogin_clicked()
 {
     QString Username = ui->lineEditUsername->text();
     QString Password = ui->lineEditPassword->text();
-    if (Username == "oalbuquerque" && Password == "Password123")
+    if (Username == "octavio" && Password == "Password111")
     {
-        QMessageBox::information(this, "oalbuquerque", "Login Success.");
+        QMessageBox::information(this, "Notification", "Login Success.");
         this->hide();
-        MainPage *mainpage = new MainPage();
+        MainPage mainpage = new MainPage();
         mainpage->show();
     }
     else
-    {
-        QMessageBox::information(this, "oalbuquerque", "Please enter valid username or password");
-    }
+        if (Username == "aaron" && Password == "Password222")
+        {
+            QMessageBox::information(this, "Notification", "Login Success.");
+            this->hide();
+            MainPagemainpage = new MainPage();
+            mainpage->show();
+        }
+    else
+        if (Username == "linsey" && Password == "Password333")
+        {
+            QMessageBox::information(this, "Notification", "Login Success.");
+            this->hide();
+            MainPage mainpage = new MainPage();
+            mainpage->show();
+        }
+    else
+        if (Username == "reise" && Password == "Password444")
+        {
+            QMessageBox::information(this, "Notification", "Login Success.");
+            this->hide();
+            MainPagemainpage = new MainPage();
+            mainpage->show();
+        }
+    else
+        if (Username == "ferris" && Password == "Password555")
+        {
+            QMessageBox::information(this, "Notification", "Login Success.");
+            this->hide();
+            MainPage mainpage = new MainPage();
+            mainpage->show();
+        }
+    else
+        if (Username == "ruben" && Password == "Password666")
+        {
+            QMessageBox::information(this, "Notification", "Login Success.");
+            this->hide();
+            MainPagemainpage = new MainPage();
+            mainpage->show();
+        }
 }
 
 
