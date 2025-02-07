@@ -23,7 +23,7 @@
    <bool>false</bool>
   </property>
   <property name="styleSheet">
-   <string notr="true">border-image: url(:/res/images/mainpageBackground.jpg);</string>
+   <string notr="true">background-image: url(:/res/images/choose24-1-2000px.jpg);</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <property name="styleSheet">
@@ -32,10 +32,10 @@
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>170</x>
+      <x>40</x>
       <y>0</y>
-      <width>801</width>
-      <height>61</height>
+      <width>901</width>
+      <height>121</height>
      </rect>
     </property>
     <property name="font">
@@ -49,7 +49,7 @@
      <string notr="true"/>
     </property>
     <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:36pt; color:#000000;&quot;&gt;College Campus Touring&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:72pt; color:#ffffff;&quot;&gt;The College Tour&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -106,158 +106,62 @@
      </item>
     </layout>
    </widget>
-   <widget class="QWidget" name="gridLayoutWidget">
+   <widget class="QPushButton" name="pushButton_8">
     <property name="geometry">
      <rect>
-      <x>240</x>
-      <y>210</y>
-      <width>181</width>
-      <height>321</height>
+      <x>390</x>
+      <y>330</y>
+      <width>201</width>
+      <height>41</height>
      </rect>
     </property>
-    <layout class="QGridLayout" name="gridLayout">
-     <item row="2" column="0">
-      <widget class="QPushButton" name="pushButton_2">
-       <property name="font">
-        <font>
-         <family>Times New Roman</family>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>View A Trip</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <widget class="QPushButton" name="pushButton_4">
-       <property name="font">
-        <font>
-         <family>Times New Roman</family>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>View College Information</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QPushButton" name="pushButton">
-       <property name="font">
-        <font>
-         <family>Times New Roman</family>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>Plan A Trip</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>Buy Souvenirs </string>
+    </property>
    </widget>
-   <widget class="QWidget" name="gridLayoutWidget_2">
+   <widget class="QPushButton" name="pushButton_15">
     <property name="geometry">
      <rect>
-      <x>470</x>
-      <y>210</y>
-      <width>181</width>
-      <height>321</height>
+      <x>630</x>
+      <y>330</y>
+      <width>221</width>
+      <height>41</height>
      </rect>
     </property>
-    <layout class="QGridLayout" name="gridLayout_2">
-     <item row="3" column="0">
-      <widget class="QPushButton" name="pushButton_7">
-       <property name="font">
-        <font>
-         <family>Times New Roman</family>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>Modify Souvenir Price</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="0">
-      <widget class="QPushButton" name="pushButton_6">
-       <property name="font">
-        <font>
-         <family>Times New Roman</family>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>Delete Souvenir</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QPushButton" name="pushButton_8">
-       <property name="font">
-        <font>
-         <family>Times New Roman</family>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>Souvenirs </string>
-       </property>
-      </widget>
-     </item>
-    </layout>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>Administrator</string>
+    </property>
    </widget>
-   <widget class="QWidget" name="gridLayoutWidget_4">
+   <widget class="QPushButton" name="pushButton_4">
     <property name="geometry">
      <rect>
-      <x>690</x>
-      <y>210</y>
-      <width>181</width>
-      <height>321</height>
+      <x>150</x>
+      <y>330</y>
+      <width>201</width>
+      <height>41</height>
      </rect>
     </property>
-    <layout class="QGridLayout" name="gridLayout_4">
-     <item row="2" column="0">
-      <widget class="QPushButton" name="pushButton_13">
-       <property name="font">
-        <font>
-         <family>Times New Roman</family>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>PushButton</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0">
-      <widget class="QPushButton" name="pushButton_14">
-       <property name="font">
-        <font>
-         <family>Times New Roman</family>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>PushButton</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QPushButton" name="pushButton_15">
-       <property name="font">
-        <font>
-         <family>Times New Roman</family>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>Administrator</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>Tour Colleges</string>
+    </property>
    </widget>
   </widget>
  </widget>
