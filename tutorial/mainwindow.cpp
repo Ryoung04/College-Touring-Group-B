@@ -17,53 +17,52 @@ void MainWindow::on_pushButtonLogin_clicked()
 {
     QString Username = ui->lineEditUsername->text();
     QString Password = ui->lineEditPassword->text();
-    if (Username == "octavio" && Password == "Password111")
+    if (Username == "oalbuquerque" && Password == "Password123")
     {
         QMessageBox::information(this, "Notification", "Login Success.");
         this->hide();
-        MainPage mainpage = new MainPage();
+        MainPage *mainpage = new MainPage();
+        mainpage->show();
+    }
+    if (Username == "aaron" && Password == "Password222")
+    {
+        QMessageBox::information(this, "Notification", "Login Success.");
+        this->hide();
+        MainPage *mainpage = new MainPage();
+        mainpage->show();
+    }
+    if (Username == "linsey" && Password == "Password333")
+    {
+        QMessageBox::information(this, "Notification", "Login Success.");
+        this->hide();
+        MainPage *mainpage = new MainPage();
+        mainpage->show();
+    }
+    if (Username == "reise" && Password == "Password444")
+    {
+        QMessageBox::information(this, "Notification", "Login Success.");
+        this->hide();
+        MainPage *mainpage = new MainPage();
+        mainpage->show();
+    }
+    if (Username == "ferris" && Password == "Password555")
+    {
+        QMessageBox::information(this, "Notification", "Login Success.");
+        this->hide();
+        MainPage *mainpage = new MainPage();
+        mainpage->show();
+    }
+    if (Username == "ruben" && Password == "Password666")
+    {
+        QMessageBox::information(this, "Notification", "Login Success.");
+        this->hide();
+        MainPage *mainpage = new MainPage();
         mainpage->show();
     }
     else
-        if (Username == "aaron" && Password == "Password222")
-        {
-            QMessageBox::information(this, "Notification", "Login Success.");
-            this->hide();
-            MainPagemainpage = new MainPage();
-            mainpage->show();
-        }
-    else
-        if (Username == "linsey" && Password == "Password333")
-        {
-            QMessageBox::information(this, "Notification", "Login Success.");
-            this->hide();
-            MainPage mainpage = new MainPage();
-            mainpage->show();
-        }
-    else
-        if (Username == "reise" && Password == "Password444")
-        {
-            QMessageBox::information(this, "Notification", "Login Success.");
-            this->hide();
-            MainPagemainpage = new MainPage();
-            mainpage->show();
-        }
-    else
-        if (Username == "ferris" && Password == "Password555")
-        {
-            QMessageBox::information(this, "Notification", "Login Success.");
-            this->hide();
-            MainPage mainpage = new MainPage();
-            mainpage->show();
-        }
-    else
-        if (Username == "ruben" && Password == "Password666")
-        {
-            QMessageBox::information(this, "Notification", "Login Success.");
-            this->hide();
-            MainPagemainpage = new MainPage();
-            mainpage->show();
-        }
+    {
+        QMessageBox::information(this, Username, "Please enter valid username or password");
+    }
 }
 
 
