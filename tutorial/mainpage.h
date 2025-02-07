@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 
+class CollegeTourPage;
+
 namespace Ui {
 class MainPage;
 }
@@ -15,8 +17,12 @@ public:
     explicit MainPage(QWidget *parent = nullptr);
     ~MainPage();
 
+public slots:
+    void on_pushCollegeButton_clicked();
+
 private:
     Ui::MainPage *ui;
+    CollegeTourPage *collegeTourPage;
 };
 
 #endif // MAINPAGE_H
