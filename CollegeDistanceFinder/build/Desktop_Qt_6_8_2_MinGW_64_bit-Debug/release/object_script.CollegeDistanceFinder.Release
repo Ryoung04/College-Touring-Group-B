@@ -1,0 +1,12 @@
+release/collegedistancewidget.o
+release/csvparser.o
+release/loginwindow.o
+release/main.o
+release/mainwindow.o
+release/loginwindow.o
+release/collegedistancewidget.o
+release/csvparser.o
+release/qrc_resources.o
+release/moc_collegedistancewidget.o
+release/moc_loginwindow.o
+release/moc_mainwindow.o

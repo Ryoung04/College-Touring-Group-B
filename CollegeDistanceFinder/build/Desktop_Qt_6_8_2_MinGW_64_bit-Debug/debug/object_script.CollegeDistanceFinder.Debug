@@ -1,0 +1,12 @@
+debug/collegedistancewidget.o
+debug/csvparser.o
+debug/loginwindow.o
+debug/main.o
+debug/mainwindow.o
+debug/loginwindow.o
+debug/collegedistancewidget.o
+debug/csvparser.o
+debug/qrc_resources.o
+debug/moc_collegedistancewidget.o
+debug/moc_loginwindow.o
+debug/moc_mainwindow.o

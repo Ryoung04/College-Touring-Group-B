@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>CollegeDistanceWidget</class>
+ <widget class="QWidget" name="CollegeDistanceWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>College Distance Finder</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <layout class="QHBoxLayout" name="headerLayout">
+     <item>
+      <widget class="QLabel" name="titleLabel">
+       <property name="font">
+        <font>
+         <pointsize>16</pointsize>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>College Distance Finder</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="logoutButton">
+       <property name="styleSheet">
+        <string notr="true">background-color: #dc2626; color: white; padding: 8px 16px;</string>
+       </property>
+       <property name="text">
+        <string>Logout</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="contentLayout">
+     <item>
+      <widget class="QGroupBox" name="collegesGroup">
+       <property name="title">
+        <string>Available Colleges</string>
+       </property>
+       <layout class="QVBoxLayout" name="collegesLayout">
+        <item>
+         <widget class="QListWidget" name="collegeList"/>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="selectedGroup">
+       <property name="title">
+        <string>Your Trip</string>
+       </property>
+       <layout class="QVBoxLayout" name="selectedLayout">
+        <item>
+         <widget class="QListWidget" name="selectedColleges"/>
+        </item>
+        <item>
+         <widget class="QLabel" name="totalDistanceLabel">
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
