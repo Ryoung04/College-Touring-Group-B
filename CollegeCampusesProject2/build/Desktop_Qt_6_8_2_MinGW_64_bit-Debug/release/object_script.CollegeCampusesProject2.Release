@@ -1,0 +1,16 @@
+release/main.o
+release/mainwindow.o
+release/campus.o
+release/user.o
+release/dbmanager.o
+release/csvhandler.o
+release/loginwindow.o
+release/hometabwidget.o
+release/adminpanel.o
+release/addcollegedialog.o
+release/qrc_resources.o
+release/moc_mainwindow.o
+release/moc_loginwindow.o
+release/moc_hometabwidget.o
+release/moc_adminpanel.o
+release/moc_addcollegedialog.o

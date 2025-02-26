@@ -1,0 +1,16 @@
+debug/main.o
+debug/mainwindow.o
+debug/campus.o
+debug/user.o
+debug/dbmanager.o
+debug/csvhandler.o
+debug/loginwindow.o
+debug/hometabwidget.o
+debug/adminpanel.o
+debug/addcollegedialog.o
+debug/qrc_resources.o
+debug/moc_mainwindow.o
+debug/moc_loginwindow.o
+debug/moc_hometabwidget.o
+debug/moc_adminpanel.o
+debug/moc_addcollegedialog.o

@@ -1,0 +1,497 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>College Campus Tour</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="styleSheet">
+       <string notr="true">
+        /* Modern Tab Widget Style */
+        QTabWidget::pane {
+          border: none;
+          background: transparent;
+        }
+        
+        QTabBar::tab {
+          padding: 10px 25px;
+          margin: 0px 3px;
+          border-top-left-radius: 8px;
+          border-top-right-radius: 8px;
+          background: rgba(0, 0, 0, 0.7);
+          color: white;
+          font-weight: bold;
+          font-size: 13px;
+        }
+        
+        QTabBar::tab:hover {
+          background: #E91E63;  /* Pink */
+        }
+        
+        QTabBar::tab:selected {
+          background: #FF5722;  /* Coral */
+          color: white;
+        }
+
+        /* Modern Button Style */
+        QPushButton {
+          background-color: #E91E63;  /* Pink */
+          color: white;
+          border: none;
+          border-radius: 10px;
+          padding: 15px 25px;
+          font-weight: bold;
+          font-size: 14px;
+          margin: 8px 50px;
+        }
+
+        QPushButton:hover {
+          background-color: #FF5722;  /* Coral */
+          transform: translateY(-2px);
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        QPushButton:pressed {
+          background-color: #FFC107;  /* Yellow */
+          color: #000000;
+          transform: translateY(1px);
+        }
+
+        /* Modern ComboBox Style */
+        QComboBox {
+          padding: 10px 15px;
+          border: 2px solid #E91E63;  /* Pink */
+          border-radius: 8px;
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          min-width: 200px;
+        }
+
+        QComboBox::placeholder {
+          color: rgba(255, 255, 255, 0.6);
+          font-style: italic;
+        }
+
+        QComboBox:hover {
+          border-color: #FF5722;  /* Coral */
+          background: rgba(0, 0, 0, 0.9);
+        }
+
+        QComboBox::drop-down {
+          border: none;
+          width: 30px;
+        }
+
+        /* Dark Table Style */
+        QTableWidget {
+          background: rgba(0, 0, 0, 0.8);
+          border-radius: 10px;
+          gridline-color: #E91E63;  /* Pink */
+          color: white;
+          border: 1px solid #FF5722;  /* Coral */
+        }
+
+        QTableWidget::item {
+          padding: 10px;
+          border-radius: 4px;
+          color: white;
+        }
+
+        QTableWidget::item:selected {
+          background: #E91E63;  /* Pink */
+          color: white;
+        }
+
+        QTableWidget::item:hover {
+          background: rgba(255, 87, 34, 0.3);  /* Coral with transparency */
+        }
+
+        QHeaderView::section {
+          background: #000000;
+          color: #FFC107;  /* Yellow */
+          padding: 12px 8px;
+          border: none;
+          border-right: 1px solid #E91E63;  /* Pink */
+          border-bottom: 1px solid #E91E63;
+          font-weight: bold;
+        }
+
+        QHeaderView::section:hover {
+          background: rgba(233, 30, 99, 0.3);  /* Pink with transparency */
+        }
+
+        /* Modern Scrollbar Style */
+        QScrollBar:vertical {
+          border: none;
+          background: rgba(0, 0, 0, 0.8);
+          width: 10px;
+          border-radius: 5px;
+        }
+
+        QScrollBar::handle:vertical {
+          background: #E91E63;  /* Pink */
+          border-radius: 5px;
+          min-height: 20px;
+        }
+
+        QScrollBar::handle:vertical:hover {
+          background: #FF5722;  /* Coral */
+        }
+
+        /* Modern Label Style */
+        QLabel {
+          color: white;
+          background-color: rgba(0, 0, 0, 0.7);
+          padding: 15px;
+          border-radius: 10px;
+          border: 1px solid #E91E63;  /* Pink */
+        }
+
+        /* Tab-specific backgrounds */
+        #homeTab {
+          background: qlineargradient(
+            x1: 0, y1: 0, x2: 1, y2: 1,
+            stop: 0 #000000,
+            stop: 0.3 #E91E63,  /* Pink */
+            stop: 0.6 #FF5722,  /* Coral */
+            stop: 0.9 #FFC107,  /* Yellow */
+            stop: 1 #4DD0E1    /* Blue */
+          );
+        }
+
+        #tripPlannerTab {
+          background: qlineargradient(
+            x1: 0, y1: 0, x2: 1, y2: 1,
+            stop: 0 #000000,
+            stop: 0.4 #E91E63,  /* Pink */
+            stop: 0.8 #FF5722   /* Coral */
+          );
+        }
+
+        #souvenirTab {
+          background: qlineargradient(
+            x1: 0, y1: 0, x2: 1, y2: 1,
+            stop: 0 #000000,
+            stop: 0.4 #FF5722,  /* Coral */
+            stop: 0.8 #FFC107   /* Yellow */
+          );
+        }
+
+        #distancesTab {
+          background: qlineargradient(
+            x1: 0, y1: 0, x2: 1, y2: 1,
+            stop: 0 #000000,
+            stop: 0.4 #FFC107,  /* Yellow */
+            stop: 0.8 #4DD0E1   /* Blue */
+          );
+        }
+       </string>
+      </property>
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="homeTab">
+       <attribute name="title">
+        <string>Home</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="homeVerticalLayout">
+        <item>
+         <widget class="QLabel" name="welcomeLabel">
+          <property name="font">
+           <font>
+            <pointsize>24</pointsize>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Plan Your College Campus Tour</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="homeVerticalSpacer">
+          <property name="orientation">
+           <enum>Qt::Orientation::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="buttonLayout">
+          <item>
+           <widget class="QPushButton" name="goToTripPlannerButton">
+            <property name="minimumSize">
+             <size>
+              <width>200</width>
+              <height>50</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Plan a Trip</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="goToSouvenirsButton">
+            <property name="minimumSize">
+             <size>
+              <width>200</width>
+              <height>50</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Browse Souvenirs</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="goToDistancesButton">
+            <property name="minimumSize">
+             <size>
+              <width>200</width>
+              <height>50</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>View Distances</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Orientation::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tripPlannerTab">
+       <attribute name="title">
+        <string>Trip Planner</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QListWidget" name="campusList">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_3">
+            <item>
+             <widget class="QPushButton" name="addToTripButton">
+              <property name="text">
+               <string>Add to Trip →</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="removeFromTripButton">
+              <property name="text">
+               <string>← Remove</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="verticalSpacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QListWidget" name="selectedCampusList">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QPushButton" name="optimizeRouteButton">
+            <property name="text">
+             <string>Optimize Route</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="calculateDistanceButton">
+            <property name="text">
+             <string>Calculate Distance</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="totalDistanceLabel">
+            <property name="text">
+             <string>Total Distance: 0.0 miles</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="souvenirTab">
+       <attribute name="title">
+        <string>Souvenirs</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="souvenirLayout">
+        <item>
+         <widget class="QComboBox" name="souvenirCampusCombo"/>
+        </item>
+        <item>
+         <widget class="QTableWidget" name="souvenirTable"/>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="distancesTab">
+       <attribute name="title">
+        <string>Distances</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_6">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_5">
+          <item>
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>Select Starting Campus:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="startingCampusCombo"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QTableWidget" name="distancesTable">
+          <property name="editTriggers">
+           <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+          </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
+          </property>
+          <property name="sortingEnabled">
+           <bool>true</bool>
+          </property>
+          <column>
+           <property name="text">
+            <string>Campus</string>
+           </property>
+           <property name="textAlignment">
+            <set>AlignLeading|AlignVCenter</set>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Distance (miles)</string>
+           </property>
+           <property name="textAlignment">
+            <set>AlignLeading|AlignVCenter</set>
+           </property>
+          </column>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionLoad_Trip"/>
+    <addaction name="actionSave_Trip"/>
+    <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <addaction name="menuFile"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionLoad_Trip">
+   <property name="text">
+    <string>Load Trip</string>
+   </property>
+  </action>
+  <action name="actionSave_Trip">
+   <property name="text">
+    <string>Save Trip</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>HomeTabWidget</class>
+   <extends>QWidget</extends>
+   <header>views/hometabwidget.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>
