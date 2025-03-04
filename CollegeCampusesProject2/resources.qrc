@@ -1,0 +1,10 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/images">
+        <file>images/background.jpg</file>
+    </qresource>
+    <qresource prefix="/data">
+        <file>data/colleges.csv</file>
+        <file>data/souvenirs.csv</file>
+    </qresource>
+</RCC> 

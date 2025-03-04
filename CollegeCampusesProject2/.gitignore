@@ -1,0 +1,58 @@
+# Qt Creator generated files
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+Makefile*
+*build-*
+*.qmlc
+*.jsc
+*-Debug
+*-Release
+
+# Qt Creator auto-generated files
+*CMakeLists.txt.user
+*build*/
+*CMakeCache.txt
+*CMakeFiles/
+
+# Build directories
+build/
+debug/
+release/
+
+# Compiled object files
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.exe
+*.out
+
+# Database files - Uncomment if you don't want to include the database in version control
+# *.db
+# *.sqlite
+
+# macOS specific
+.DS_Store
+*.app/
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Other IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Generated files
+*.log
+*.tmp 
