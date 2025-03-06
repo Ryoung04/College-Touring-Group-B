@@ -2,10 +2,22 @@
 #include "ui_adminpanel.h"
 #include <QMessageBox>
 #include <QInputDialog>
-#include "addcollegedialog.h"
 #include <QDebug>
-#include <QMainWindow>
-#include <QComboBox>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QHeaderView>
+#include "addcollegedialog.h"
+#include <QUuid>
+#include <QCryptographicHash>
+#include <QTextEdit>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QSqlRecord>
+#include <QLabel>
+#include <QDialog>
+#include <QTableWidget>
 
 AdminPanel::AdminPanel(DBManager* db, QWidget *parent)
     : QDialog(parent)
@@ -15,13 +27,26 @@ AdminPanel::AdminPanel(DBManager* db, QWidget *parent)
 {
     ui->setupUi(this);
     setWindowTitle("Admin Panel");
+    
+    // Set a larger size for the dialog
+    resize(900, 600);
+    
     setupTables();
 
-    // Connect tab widget signal to update souvenir combo box
+    // Add the SQL terminal setup
+    setupSqlTerminal();
+
+    // Connect tab widget signal
     connect(ui->tabWidget, &QTabWidget::currentChanged, this, &AdminPanel::on_tabWidget_currentChanged);
 
     // Initialize buttons for the default tab
     on_tabWidget_currentChanged(ui->tabWidget->currentIndex());
+    
+    // Load users data when showing the admin panel
+    loadUsers();
+    
+    // Update souvenir combo box
+    updateSouvenirComboBox();
 }
 
 AdminPanel::~AdminPanel()
@@ -31,42 +56,197 @@ AdminPanel::~AdminPanel()
 
 void AdminPanel::setupTables()
 {
-    // Setup tables
-    ui->collegesTable->setColumnCount(2);
-    ui->collegesTable->setHorizontalHeaderLabels({"ID", "Name"});
-    ui->collegesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    // Setup users table
+    if (ui->usersTableView) {
+        ui->usersTableView->setSelectionBehavior(QAbstractItemView::SelectRows);
+        ui->usersTableView->setSelectionMode(QAbstractItemView::SingleSelection);
+        ui->usersTableView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        ui->usersTableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        
+        // Find and update the User Tab button if it exists
+        if (ui->userTabButton) {
+            ui->userTabButton->setText("Apply");
+            
+            // Disconnect any existing connections
+            disconnect(ui->userTabButton, nullptr, this, nullptr);
+            
+            // Connect to a new slot for applying changes
+            connect(ui->userTabButton, &QPushButton::clicked, this, &AdminPanel::applyUserChanges);
+        }
+    }
     
-    ui->distancesTable->setColumnCount(3);
-    ui->distancesTable->setHorizontalHeaderLabels({"From", "To", "Distance"});
-    ui->distancesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    // Setup colleges table
+    if (ui->collegesTable) {
+        ui->collegesTable->setColumnCount(2);
+        ui->collegesTable->setHorizontalHeaderLabels({"ID", "Name"});
+        ui->collegesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        ui->collegesTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        ui->collegesTable->setSelectionMode(QAbstractItemView::SingleSelection);
+        ui->collegesTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    }
     
-    // Load initial data
-    loadColleges();
-    loadDistances();
+    // Setup distances table
+    if (ui->distancesTable) {
+        ui->distancesTable->setColumnCount(3);
+        ui->distancesTable->setHorizontalHeaderLabels({"From", "To", "Distance"});
+        ui->distancesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        ui->distancesTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        ui->distancesTable->setSelectionMode(QAbstractItemView::SingleSelection);
+        ui->distancesTable->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
+        
+        // Add buttons to the distances tab
+        QWidget* distancesTab = ui->tabWidget->widget(2); // Distances tab is index 2
+        QVBoxLayout* layout = nullptr;
+        
+        // Check if there's already a layout
+        if (distancesTab->layout()) {
+            layout = qobject_cast<QVBoxLayout*>(distancesTab->layout());
+        } else {
+            // Create a new layout if there isn't one
+            layout = new QVBoxLayout(distancesTab);
+            // Add the distances table to the layout
+            layout->addWidget(ui->distancesTable);
+        }
+        
+        // Create a horizontal layout for the buttons
+        QHBoxLayout* buttonLayout = new QHBoxLayout();
+        
+        // Create buttons
+        QPushButton* applyButton = new QPushButton("Apply");
+        QPushButton* cancelButton = new QPushButton("Cancel");
+        QPushButton* closeButton = new QPushButton("Close");
+        
+        // Add buttons to the horizontal layout
+        buttonLayout->addWidget(applyButton);
+        buttonLayout->addWidget(cancelButton);
+        buttonLayout->addWidget(closeButton);
+        
+        // Add the button layout to the main layout
+        layout->addLayout(buttonLayout);
+        
+        // Connect buttons to slots
+        connect(applyButton, &QPushButton::clicked, this, &AdminPanel::applyDistanceChanges);
+        connect(cancelButton, &QPushButton::clicked, this, &AdminPanel::cancelDistanceChanges);
+        connect(closeButton, &QPushButton::clicked, this, &AdminPanel::closeDistancesTab);
+    }
     
     // Setup souvenirs table
-    ui->souvenirsTable->setColumnCount(2);
-    ui->souvenirsTable->setHorizontalHeaderLabels({"Name", "Price"});
-    ui->souvenirsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    
-    // Make souvenirs table editable
-    ui->souvenirsTable->setEditTriggers(QTableWidget::DoubleClicked | QTableWidget::EditKeyPressed);
-    
-    // Only make the price column editable
-    connect(ui->souvenirsTable, &QTableWidget::itemChanged, this, [this](QTableWidgetItem* item) {
-        if (item->column() == 1) { // Price column
-            bool ok;
-            double newPrice = item->text().toDouble(&ok);
-            if (!ok || newPrice < 0) {
-                QMessageBox::warning(this, "Invalid Input", "Please enter a valid positive number");
-                loadSouvenirs(ui->souvenirCollegeCombo->currentText()); // Reset the table
-                return;
+    if (ui->souvenirsTable) {
+        ui->souvenirsTable->setColumnCount(2);
+        ui->souvenirsTable->setHorizontalHeaderLabels({"Name", "Price"});
+        ui->souvenirsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        ui->souvenirsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        ui->souvenirsTable->setEditTriggers(QTableWidget::DoubleClicked | QTableWidget::EditKeyPressed);
+        
+        // Only make the price column editable
+        connect(ui->souvenirsTable, &QTableWidget::itemChanged, this, [this](QTableWidgetItem* item) {
+            if (item->column() == 1) { // Price column
+                bool ok;
+                double newPrice = item->text().toDouble(&ok);
+                if (!ok || newPrice < 0) {
+                    QMessageBox::warning(this, "Invalid Input", "Please enter a valid positive number");
+                    loadSouvenirs(ui->souvenirCollegeCombo->currentText()); // Reset the table
+                    return;
+                }
+                hasUnsavedChanges = true;
+            } else {
+                // Don't allow editing of Name column
+                item->setFlags(item->flags() & ~Qt::ItemIsEditable);
             }
+        });
+    }
+}
+
+void AdminPanel::closeEvent(QCloseEvent* event)
+{
+    if (hasUnsavedChanges) {
+        int result = QMessageBox::question(this, "Unsaved Changes", 
+                                         "You have unsaved changes. Do you want to save before closing?", 
+                                         QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+        
+        if (result == QMessageBox::Yes) {
+            // Save changes
+            event->accept();
+        } else if (result == QMessageBox::No) {
+            event->accept();
         } else {
-            // Don't allow editing of Name column
-            item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+            // Cancel was clicked, do nothing
+            event->ignore();
         }
-    });
+    } else {
+        event->accept();
+    }
+}
+
+void AdminPanel::reject()
+{
+    if (hasUnsavedChanges) {
+        int result = QMessageBox::question(this, "Unsaved Changes", 
+                                         "You have unsaved changes. Do you want to save before closing?", 
+                                         QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+        
+        if (result == QMessageBox::Yes) {
+            // Save changes
+            QDialog::accept();
+        } else if (result == QMessageBox::No) {
+            QDialog::reject();
+        } else {
+            // Cancel was clicked, do nothing
+            return;
+        }
+    } else {
+        QDialog::reject();
+    }
+}
+
+void AdminPanel::on_tabWidget_currentChanged(int index)
+{
+    qDebug() << "Tab changed to index:" << index;
+    
+    // Load data based on the selected tab
+    if (index == 0) { // Users tab
+        loadUsers();
+    } else if (index == 1) { // Souvenirs tab
+        updateSouvenirComboBox();
+    } else if (index == 2) { // Distances tab
+        loadDistances();
+    } else if (index == 3) { // Colleges tab
+        loadColleges();
+    } else if (index == 4) { // SQL Terminal tab
+        // No need to load data for the SQL Terminal tab
+    }
+}
+
+void AdminPanel::loadUsers()
+{
+    qDebug() << "Loading users...";
+    
+    // Create a model for the users table
+    if (!userModel) {
+        userModel = new QSqlQueryModel(this);
+    }
+    
+    // Set up the query to get all users
+    QSqlQuery query(dbManager->getDB());
+    query.exec("SELECT id, username, is_admin FROM users ORDER BY username");
+    
+    // Set the query for the model
+    userModel->setQuery(std::move(query));
+    
+    // Set headers
+    userModel->setHeaderData(0, Qt::Horizontal, "ID");
+    userModel->setHeaderData(1, Qt::Horizontal, "Username");
+    userModel->setHeaderData(2, Qt::Horizontal, "Admin");
+    
+    // Set the model for the table view
+    ui->usersTableView->setModel(userModel);
+    
+    // Adjust column widths
+    ui->usersTableView->setColumnWidth(0, 50);  // ID column
+    ui->usersTableView->setColumnWidth(1, 200); // Username column
+    ui->usersTableView->setColumnWidth(2, 50);  // Admin column
+    
+    qDebug() << "Users loaded successfully. Row count:" << userModel->rowCount();
 }
 
 void AdminPanel::loadColleges()
@@ -84,7 +264,7 @@ void AdminPanel::loadDistances()
 {
     qDebug() << "Loading distances...";
     
-    // Get both existing and pending colleges
+    // Get all campuses
     QVector<Campus> allCampuses = dbManager->getAllCampuses();
     qDebug() << "Found" << allCampuses.size() << "campuses";
     
@@ -110,9 +290,10 @@ void AdminPanel::loadDistances()
                 
                 QTableWidgetItem* distanceItem = new QTableWidgetItem(QString::number(distance));
                 
-                // Make only the distance column editable
+                // Make only the from and to columns non-editable, but allow distance to be edited
                 fromItem->setFlags(fromItem->flags() & ~Qt::ItemIsEditable);
                 toItem->setFlags(toItem->flags() & ~Qt::ItemIsEditable);
+                // Distance column is editable by default
                 
                 ui->distancesTable->setItem(currentRow, 0, fromItem);
                 ui->distancesTable->setItem(currentRow, 1, toItem);
@@ -122,6 +303,9 @@ void AdminPanel::loadDistances()
             }
         }
     }
+    
+    // Connect to itemChanged signal to track changes
+    connect(ui->distancesTable, &QTableWidget::itemChanged, this, &AdminPanel::onDistanceChanged);
     
     ui->distancesTable->blockSignals(false);
     qDebug() << "Distances loaded successfully";
@@ -140,6 +324,10 @@ void AdminPanel::loadSouvenirs(const QString& collegeName)
     
     QVector<QPair<QString, double>> souvenirs = dbManager->getSouvenirs(collegeName);
     ui->souvenirsTable->setRowCount(souvenirs.size());
+
+    // Change column count back to 2 (Name and Price)
+    ui->souvenirsTable->setColumnCount(2);
+    ui->souvenirsTable->setHorizontalHeaderLabels({"Name", "Price"});
 
     for (int i = 0; i < souvenirs.size(); ++i) {
         QTableWidgetItem* nameItem = new QTableWidgetItem(souvenirs[i].first);
@@ -162,32 +350,186 @@ void AdminPanel::on_souvenirCollegeCombo_currentTextChanged(const QString &colle
     }
 }
 
+void AdminPanel::on_addUserButton_clicked()
+{
+    qDebug() << "Add User button clicked";
+    
+    bool ok;
+    QString username = QInputDialog::getText(this, "Add User", "Username:", QLineEdit::Normal, "", &ok);
+    if (!ok || username.isEmpty()) {
+        qDebug() << "User canceled or entered empty username";
+        return;
+    }
+    
+    qDebug() << "Username entered:" << username;
+    
+    // Check if username already exists
+    if (dbManager->userExists(username)) {
+        qDebug() << "Username already exists:" << username;
+        QMessageBox::warning(this, "Add User", "Username already exists!");
+        return;
+    }
+    
+    QString password = QInputDialog::getText(this, "Add User", "Password:", QLineEdit::Password, "", &ok);
+    if (!ok || password.isEmpty()) {
+        qDebug() << "User canceled or entered empty password";
+        return;
+    }
+    
+    qDebug() << "Password entered (length):" << password.length();
+    
+    bool isAdmin = QMessageBox::question(this, "Add User", "Make this user an admin?", 
+                                        QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes;
+    
+    qDebug() << "Is admin:" << isAdmin;
+    qDebug() << "Attempting to add user to database...";
+    
+    // Create a query to get the next available ID
+    QSqlQuery getMaxIdQuery(dbManager->getDB());
+    getMaxIdQuery.exec("SELECT MAX(id) FROM users");
+    int nextId = 1; // Default if no users exist
+    
+    if (getMaxIdQuery.next() && !getMaxIdQuery.value(0).isNull()) {
+        nextId = getMaxIdQuery.value(0).toInt() + 1;
+    }
+    
+    // Hash the password
+    QString passwordHash = QString(QCryptographicHash::hash(
+        password.toUtf8(), QCryptographicHash::Sha256).toHex());
+    
+    // Directly create the query for adding a user
+    QSqlQuery query(dbManager->getDB());
+    query.prepare("INSERT INTO users (id, username, password, is_admin) VALUES (?, ?, ?, ?)");
+    query.addBindValue(nextId);
+    query.addBindValue(username);
+    query.addBindValue(passwordHash);
+    query.addBindValue(isAdmin ? 1 : 0);
+    
+    bool success = query.exec();
+    
+    if (success) {
+        QMessageBox::information(this, "Add User", "User added successfully!");
+        loadUsers(); // Refresh the users list
+    } else {
+        qDebug() << "SQL Error:" << query.lastError().text();
+        QMessageBox::critical(this, "Add User", "Failed to add user! Check the debug log for details.");
+    }
+}
+
+void AdminPanel::on_editUserButton_clicked()
+{
+    // Get the selected user
+    QModelIndex currentIndex = ui->usersTableView->currentIndex();
+    if (!currentIndex.isValid()) {
+        QMessageBox::warning(this, "Edit User", "Please select a user to edit.");
+        return;
+    }
+    
+    // Get the user ID and username from the model
+    int row = currentIndex.row();
+    DBManager::UserInfo selectedUser;
+    selectedUser.id = userModel->index(row, 0).data().toString();
+    selectedUser.username = userModel->index(row, 1).data().toString();
+    selectedUser.isAdmin = userModel->index(row, 2).data().toBool();
+    
+    // Check if this is the original admin user
+    if (dbManager->isOriginalAdmin(userModel->index(row, 0).data().toString())) {
+        QMessageBox::warning(this, "Edit User", "Cannot edit the original admin user!");
+        return;
+    }
+    
+    // Get new username
+    bool ok;
+    QString newUsername = QInputDialog::getText(this, "Edit User", 
+                                              "New Username:", QLineEdit::Normal, 
+                                              selectedUser.username, &ok);
+    if (!ok) return;
+    
+    // Get new password (optional)
+    QString newPassword = QInputDialog::getText(this, "Edit User", 
+                                              "New Password (leave empty to keep current):", 
+                                              QLineEdit::Password, "", &ok);
+    if (!ok) return;
+    
+    // Get admin status
+    bool isAdmin = QMessageBox::question(this, "Edit User", "Make this user an admin?", 
+                                       QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes;
+    
+    // Update the user
+    if (dbManager->updateUser(selectedUser.id, newUsername, newPassword, isAdmin)) {
+        QMessageBox::information(this, "Edit User", "User updated successfully!");
+        loadUsers(); // Refresh the users list
+    } else {
+        QMessageBox::critical(this, "Edit User", "Failed to update user!");
+    }
+}
+
+void AdminPanel::on_deleteUserButton_clicked()
+{
+    // Get the selected user
+    QModelIndex currentIndex = ui->usersTableView->currentIndex();
+    if (!currentIndex.isValid()) {
+        QMessageBox::warning(this, "Delete User", "Please select a user to delete.");
+        return;
+    }
+    
+    // Get the user ID and username from the model
+    int row = currentIndex.row();
+    DBManager::UserInfo selectedUser;
+    selectedUser.id = userModel->index(row, 0).data().toString();
+    selectedUser.username = userModel->index(row, 1).data().toString();
+    
+    // Check if this is the original admin user
+    if (dbManager->isOriginalAdmin(userModel->index(row, 0).data().toString())) {
+        QMessageBox::warning(this, "Delete User", "Cannot delete the original admin user!");
+        return;
+    }
+    
+    // Confirm deletion
+    if (QMessageBox::question(this, "Delete User", 
+                            QString("Are you sure you want to delete user '%1'?").arg(selectedUser.username), 
+                            QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+        return;
+    }
+    
+    // Delete the user
+    if (dbManager->deleteUser(selectedUser.id)) {
+        QMessageBox::information(this, "Delete User", "User deleted successfully!");
+        loadUsers(); // Refresh the users list
+    } else {
+        QMessageBox::critical(this, "Delete User", "Failed to delete user!");
+    }
+}
+
+void AdminPanel::on_userTabButton_clicked()
+{
+    ui->tabWidget->setCurrentIndex(0); // Switch to the Users tab
+}
+
 void AdminPanel::on_addCollegeButton_clicked()
 {
     qDebug() << "Add College clicked";
     
-    AddCollegeDialog dialog(dbManager->getAllCampuses(), this);
-    if (dialog.exec() == QDialog::Accepted) {
-        QString collegeName = dialog.getCollegeName();
-        QMap<QString, double> distances = dialog.getDistances();
-        
-        qDebug() << "Adding college:" << collegeName;
-        
-        if (dbManager->addCollegeWithDistances(collegeName, distances)) {
-            qDebug() << "College added successfully";
-            loadColleges();
-            loadDistances();
-            updateSouvenirComboBox();
-            emit collegesChanged(); // Signal MainWindow to refresh
-            emit distancesChanged(); // Since distances were also added
-            
-            // Let the parent window handle the refresh via signals instead
-            // of trying to access its internals directly
-            qDebug() << "Emitted collegesChanged signal";
-        } else {
-            qDebug() << "Failed to add college";
-            QMessageBox::critical(this, "Error", "Failed to add college");
+    bool ok;
+    QString collegeName = QInputDialog::getText(this, "Add College", "College Name:", QLineEdit::Normal, "", &ok);
+    if (!ok || collegeName.isEmpty()) return;
+    
+    // Check if college already exists
+    QVector<Campus> existingCampuses = dbManager->getAllCampuses();
+    for (const Campus& campus : existingCampuses) {
+        if (campus.getName().toLower() == collegeName.toLower()) {
+            QMessageBox::warning(this, "Add College", "College already exists!");
+            return;
         }
+    }
+    
+    if (dbManager->addCollege(collegeName)) {
+        QMessageBox::information(this, "Add College", "College added successfully!");
+        loadColleges();
+        updateSouvenirComboBox();
+        emit collegesChanged(); // Signal MainWindow to refresh
+    } else {
+        QMessageBox::critical(this, "Error", "Failed to add college");
     }
 }
 
@@ -244,136 +586,6 @@ void AdminPanel::on_deleteCollegeButton_clicked()
         } else {
             QMessageBox::warning(this, "Error", "Failed to delete college");
         }
-    }
-}
-
-void AdminPanel::on_applySouvenirsButton_clicked()
-{
-    QString collegeName = ui->souvenirCollegeCombo->currentText();
-    if (collegeName == "Select a college") {
-        QMessageBox::warning(this, "Error", "Please select a college first");
-        return;
-    }
-
-    bool success = true;
-    for (int row = 0; row < ui->souvenirsTable->rowCount(); row++) {
-        QString name = ui->souvenirsTable->item(row, 0)->text();
-        double price = ui->souvenirsTable->item(row, 1)->text().toDouble();
-        
-        if (!dbManager->updateSouvenir(collegeName, name, price)) {
-            success = false;
-            break;
-        }
-    }
-    
-    if (success) {
-        QMessageBox::information(this, "Success", "Changes applied successfully");
-        loadSouvenirs(collegeName);
-        emit souvenirsChanged();  // Signal that souvenirs were updated
-    } else {
-        QMessageBox::warning(this, "Error", "Failed to apply some changes");
-    }
-}
-
-void AdminPanel::on_saveSouvenirsButton_clicked()
-{
-    on_applySouvenirsButton_clicked(); // Apply changes first
-    emit souvenirsChanged();  // Signal that souvenirs were updated
-    accept(); // Close dialog
-}
-
-void AdminPanel::on_cancelSouvenirsButton_clicked()
-{
-    if (QMessageBox::question(this, "Confirm Cancel", 
-                            "Are you sure you want to discard changes?") 
-        == QMessageBox::Yes) {
-        reject(); // Close dialog without saving
-    }
-}
-
-void AdminPanel::on_saveCollegesButton_clicked()
-{
-    qDebug() << "Save and Exit clicked";
-    
-    try {
-        // Apply any pending changes first
-        for (const auto& campus : pendingColleges) {
-            qDebug() << "Saving college:" << campus.getName();
-            if (!dbManager->addCollege(campus.getName())) {
-                qDebug() << "Failed to save college:" << campus.getName();
-                // Continue with other colleges even if one fails
-            }
-        }
-
-        // Clear pending changes
-        pendingColleges.clear();
-        hasUnsavedChanges = false;
-
-        qDebug() << "Changes saved successfully";
-        QMessageBox::information(this, "Success", "Changes saved successfully");
-        emit collegesChanged();  // Signal that colleges were updated
-        emit distancesChanged();  // College changes affect distances too
-        accept(); // Close the dialog with success status
-    }
-    catch (const std::exception& e) {
-        qDebug() << "Error saving changes:" << e.what();
-        QMessageBox::critical(this, "Error", "Failed to save some changes. The database may be partially updated.");
-        // Don't close the dialog on error
-    }
-}
-
-void AdminPanel::updateSouvenirComboBox()
-{
-    qDebug() << "Updating souvenir combo box";
-    
-    // Store current selection
-    QString currentSelection = ui->souvenirCollegeCombo->currentText();
-    
-    // Block signals while updating
-    ui->souvenirCollegeCombo->blockSignals(true);
-    
-    ui->souvenirCollegeCombo->clear();
-    ui->souvenirCollegeCombo->addItem("Select a college");
-    
-    QVector<Campus> campuses = dbManager->getAllCampuses();
-    for (const Campus& campus : campuses) {
-        qDebug() << "Adding college to combo box:" << campus.getName();
-        ui->souvenirCollegeCombo->addItem(campus.getName());
-    }
-    
-    // Restore previous selection if it exists
-    int index = ui->souvenirCollegeCombo->findText(currentSelection);
-    if (index != -1) {
-        ui->souvenirCollegeCombo->setCurrentIndex(index);
-    }
-    
-    ui->souvenirCollegeCombo->blockSignals(false);
-    qDebug() << "Souvenir combo box updated with" << campuses.size() << "colleges";
-}
-
-void AdminPanel::revertChanges()
-{
-    pendingDistanceChanges.clear();
-    pendingColleges.clear();
-    hasUnsavedChanges = false;
-}
-
-void AdminPanel::closeEvent(QCloseEvent* event)
-{
-    if (hasUnsavedChanges) {
-        QMessageBox::StandardButton reply = QMessageBox::question(this, 
-            "Unsaved Changes",
-            "You have unsaved changes. Are you sure you want to discard them?",
-            QMessageBox::Yes | QMessageBox::No);
-            
-        if (reply == QMessageBox::Yes) {
-            revertChanges();
-            event->accept();
-        } else {
-            event->ignore();
-        }
-    } else {
-        event->accept();
     }
 }
 
@@ -443,15 +655,20 @@ void AdminPanel::on_deleteSouvenirButton_clicked()
     }
 }
 
-void AdminPanel::on_distancesApplyButton_clicked()
+void AdminPanel::on_applySouvenirsButton_clicked()
 {
+    QString collegeName = ui->souvenirCollegeCombo->currentText();
+    if (collegeName == "Select a college") {
+        QMessageBox::warning(this, "Error", "Please select a college first");
+        return;
+    }
+
     bool success = true;
-    for (int row = 0; row < ui->distancesTable->rowCount(); row++) {
-        QString from = ui->distancesTable->item(row, 0)->text();
-        QString to = ui->distancesTable->item(row, 1)->text();
-        double distance = ui->distancesTable->item(row, 2)->text().toDouble();
+    for (int row = 0; row < ui->souvenirsTable->rowCount(); row++) {
+        QString name = ui->souvenirsTable->item(row, 0)->text();
+        double price = ui->souvenirsTable->item(row, 1)->text().toDouble();
         
-        if (!dbManager->updateDistance(from, to, distance)) {
+        if (!dbManager->updateSouvenir(collegeName, name, price)) {
             success = false;
             break;
         }
@@ -459,208 +676,341 @@ void AdminPanel::on_distancesApplyButton_clicked()
     
     if (success) {
         QMessageBox::information(this, "Success", "Changes applied successfully");
-        loadDistances(); // Refresh admin panel view
-        emit distancesChanged(); // Signal MainWindow to refresh
+        loadSouvenirs(collegeName);
+        emit souvenirsChanged();  // Signal that souvenirs were updated
+        hasUnsavedChanges = false;
     } else {
         QMessageBox::warning(this, "Error", "Failed to apply some changes");
     }
 }
 
-void AdminPanel::on_distancesSaveExitButton_clicked()
+void AdminPanel::updateSouvenirComboBox()
 {
-    on_distancesApplyButton_clicked(); // Apply changes first
-    emit distancesChanged();  // Signal that distances were updated
-    accept(); // Close dialog
-}
-
-void AdminPanel::on_distancesCancelButton_clicked()
-{
-    if (QMessageBox::question(this, "Confirm Cancel", 
-                            "Are you sure you want to discard changes?") 
-        == QMessageBox::Yes) {
-        reject(); // Close dialog without saving
+    qDebug() << "Updating souvenir combo box";
+    
+    // Store current selection
+    QString currentSelection = ui->souvenirCollegeCombo->currentText();
+    
+    // Block signals while updating
+    ui->souvenirCollegeCombo->blockSignals(true);
+    
+    ui->souvenirCollegeCombo->clear();
+    ui->souvenirCollegeCombo->addItem("Select a college");
+    
+    QVector<Campus> campuses = dbManager->getAllCampuses();
+    for (const Campus& campus : campuses) {
+        qDebug() << "Adding college to combo box:" << campus.getName();
+        ui->souvenirCollegeCombo->addItem(campus.getName());
+    }
+    
+    // Restore previous selection if it exists
+    int index = ui->souvenirCollegeCombo->findText(currentSelection);
+    if (index != -1) {
+        ui->souvenirCollegeCombo->setCurrentIndex(index);
+    }
+    
+    ui->souvenirCollegeCombo->blockSignals(false);
+    qDebug() << "Souvenir combo box updated with" << campuses.size() << "colleges";
+    
+    // Load souvenirs for the selected college
+    if (ui->souvenirCollegeCombo->currentText() != "Select a college") {
+        loadSouvenirs(ui->souvenirCollegeCombo->currentText());
     }
 }
 
-void AdminPanel::reject()
+void AdminPanel::revertChanges()
+{
+    pendingDistanceChanges.clear();
+    pendingColleges.clear();
+    hasUnsavedChanges = false;
+}
+
+void AdminPanel::setupSqlTerminal()
+{
+    // Create a new tab for SQL terminal
+    QWidget* sqlTerminalTab = new QWidget();
+    ui->tabWidget->addTab(sqlTerminalTab, "SQL Terminal");
+    
+    // Create a layout for the tab
+    QVBoxLayout* layout = new QVBoxLayout(sqlTerminalTab);
+    
+    // Add a text edit for displaying results
+    QTextEdit* resultDisplay = new QTextEdit();
+    resultDisplay->setReadOnly(true);
+    resultDisplay->setFont(QFont("Courier", 10));
+    layout->addWidget(resultDisplay);
+    
+    // Add a line edit for entering SQL commands
+    QLineEdit* sqlInput = new QLineEdit();
+    sqlInput->setPlaceholderText("Enter SQL command...");
+    layout->addWidget(sqlInput);
+    
+    // Add button for executing SQL
+    QPushButton* executeButton = new QPushButton("Execute SQL");
+    layout->addWidget(executeButton);
+    
+    // Store references to these widgets for later use
+    sqlTerminalDisplay = resultDisplay;
+    sqlTerminalInput = sqlInput;
+    
+    // Connect signals
+    connect(executeButton, &QPushButton::clicked, this, &AdminPanel::executeSqlCommand);
+    connect(sqlInput, &QLineEdit::returnPressed, this, &AdminPanel::executeSqlCommand);
+    
+    // Add helper buttons for common operations
+    QHBoxLayout* helpersLayout = new QHBoxLayout();
+    layout->addLayout(helpersLayout);
+    
+    QPushButton* resetUsersButton = new QPushButton("Reset Users Table");
+    helpersLayout->addWidget(resetUsersButton);
+    connect(resetUsersButton, &QPushButton::clicked, this, &AdminPanel::resetUsersTable);
+    
+    QPushButton* showTablesButton = new QPushButton("Show Tables");
+    helpersLayout->addWidget(showTablesButton);
+    connect(showTablesButton, &QPushButton::clicked, this, [this]() {
+        sqlTerminalInput->setText("SELECT name FROM sqlite_master WHERE type='table';");
+        executeSqlCommand();
+    });
+    
+    QPushButton* showUsersButton = new QPushButton("Show Users");
+    helpersLayout->addWidget(showUsersButton);
+    connect(showUsersButton, &QPushButton::clicked, this, [this]() {
+        sqlTerminalInput->setText("SELECT * FROM users;");
+        executeSqlCommand();
+    });
+}
+
+void AdminPanel::executeSqlCommand()
+{
+    QString sqlCommand = sqlTerminalInput->text().trimmed();
+    if (sqlCommand.isEmpty()) {
+        return;
+    }
+    
+    sqlTerminalDisplay->append("> " + sqlCommand);
+    
+    QSqlQuery query(dbManager->getDB());
+    if (query.exec(sqlCommand)) {
+        QStringList result;
+        QSqlRecord record = query.record();
+        
+        // Get column names
+        QStringList headers;
+        for (int i = 0; i < record.count(); i++) {
+            headers << record.fieldName(i);
+        }
+        
+        if (!headers.isEmpty()) {
+            result << headers.join(" | ");
+            result << QString("-").repeated(result.first().length());
+        }
+        
+        // Get rows
+        while (query.next()) {
+            QStringList rowData;
+            for (int i = 0; i < record.count(); i++) {
+                rowData << query.value(i).toString();
+            }
+            result << rowData.join(" | ");
+        }
+        
+        if (result.size() > 2) {
+            sqlTerminalDisplay->append(result.join("\n"));
+            sqlTerminalDisplay->append(QString("\nSuccess: %1 rows returned.").arg(result.size() - 2));
+        } else {
+            if (sqlCommand.toLower().startsWith("select")) {
+                sqlTerminalDisplay->append("Query executed successfully. No rows returned.");
+            } else {
+                sqlTerminalDisplay->append(QString("Success: %1 rows affected.").arg(query.numRowsAffected()));
+            }
+        }
+    } else {
+        sqlTerminalDisplay->append("Error: " + query.lastError().text());
+    }
+    
+    sqlTerminalDisplay->append("\n");
+    sqlTerminalInput->clear();
+}
+
+void AdminPanel::resetUsersTable()
+{
+    if (QMessageBox::question(this, "Reset Users Table", 
+                           "This will completely rebuild the users table and create a new admin user.\n"
+                           "Are you sure you want to continue?", 
+                           QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+        return;
+    }
+    
+    // Start a transaction
+    dbManager->getDB().transaction();
+    
+    // Drop the users table completely
+    if (!dbManager->executeSQL("DROP TABLE IF EXISTS users")) {
+        sqlTerminalDisplay->append("Error: Failed to drop users table.");
+        dbManager->getDB().rollback();
+        return;
+    }
+    
+    // Create the users table with a clean schema
+    if (!dbManager->executeSQL("CREATE TABLE users ("
+                              "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                              "username TEXT UNIQUE NOT NULL,"
+                              "password TEXT NOT NULL,"
+                              "is_admin INTEGER NOT NULL DEFAULT 0)")) {
+        sqlTerminalDisplay->append("Error: Failed to create users table.");
+        dbManager->getDB().rollback();
+        return;
+    }
+    
+    // Create the admin user with a consistent password hash
+    QString passwordHash = QString(QCryptographicHash::hash(
+        QString("admin123").toUtf8(), QCryptographicHash::Sha256).toHex());
+    
+    QSqlQuery query(dbManager->getDB());
+    query.prepare("INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)");
+    query.addBindValue("admin");
+    query.addBindValue(passwordHash);
+    query.addBindValue(1);
+    
+    if (!query.exec()) {
+        sqlTerminalDisplay->append("Error: Failed to create admin user: " + query.lastError().text());
+        dbManager->getDB().rollback();
+        return;
+    }
+    
+    if (dbManager->getDB().commit()) {
+        sqlTerminalDisplay->append("Users table reset successfully. New admin user created (admin/admin123)");
+        loadUsers(); // Refresh the users list
+    } else {
+        sqlTerminalDisplay->append("Failed to commit transaction");
+    }
+}
+
+void AdminPanel::applyUserChanges()
+{
+    // You can implement logic here to save any pending changes in the users tab
+    // For now, just refresh the users data
+    loadUsers();
+    QMessageBox::information(this, "Users", "Changes applied successfully");
+}
+
+void AdminPanel::onDistanceChanged(QTableWidgetItem* item)
+{
+    // Only process changes to the distance column (column index 2)
+    if (item->column() != 2) return;
+    
+    int row = item->row();
+    QString fromCollege = ui->distancesTable->item(row, 0)->text();
+    QString toCollege = ui->distancesTable->item(row, 1)->text();
+    
+    bool ok;
+    double newDistance = item->text().toDouble(&ok);
+    
+    if (!ok || newDistance < 0) {
+        QMessageBox::warning(this, "Invalid Distance", "Please enter a valid positive number.");
+        
+        // Reset to the original value
+        double originalDistance = dbManager->getDistance(fromCollege, toCollege);
+        ui->distancesTable->blockSignals(true);
+        item->setText(QString::number(originalDistance));
+        ui->distancesTable->blockSignals(false);
+        return;
+    }
+    
+    // Store the change in the pending changes map
+    if (!pendingDistanceChanges.contains(fromCollege)) {
+        pendingDistanceChanges[fromCollege] = QMap<QString, double>();
+    }
+    pendingDistanceChanges[fromCollege][toCollege] = newDistance;
+    
+    // Also store the reverse direction since distances are bidirectional
+    if (!pendingDistanceChanges.contains(toCollege)) {
+        pendingDistanceChanges[toCollege] = QMap<QString, double>();
+    }
+    pendingDistanceChanges[toCollege][fromCollege] = newDistance;
+    
+    hasUnsavedChanges = true;
+}
+
+void AdminPanel::applyDistanceChanges()
+{
+    if (pendingDistanceChanges.isEmpty()) {
+        QMessageBox::information(this, "No Changes", "No changes to apply.");
+        return;
+    }
+    
+    bool success = true;
+    
+    // Start a transaction
+    dbManager->getDB().transaction();
+    
+    // Apply all pending changes
+    for (auto it = pendingDistanceChanges.begin(); it != pendingDistanceChanges.end(); ++it) {
+        QString fromCollege = it.key();
+        QMap<QString, double> toColleges = it.value();
+        
+        for (auto jt = toColleges.begin(); jt != toColleges.end(); ++jt) {
+            QString toCollege = jt.key();
+            double newDistance = jt.value();
+            
+            if (!dbManager->updateDistance(fromCollege, toCollege, newDistance)) {
+                success = false;
+                qDebug() << "Failed to update distance from" << fromCollege << "to" << toCollege;
+                break;
+            }
+        }
+        
+        if (!success) break;
+    }
+    
+    if (success) {
+        dbManager->getDB().commit();
+        QMessageBox::information(this, "Success", "Distance changes applied successfully.");
+        pendingDistanceChanges.clear();
+        hasUnsavedChanges = false;
+        emit distancesChanged(); // Signal that distances were updated
+    } else {
+        dbManager->getDB().rollback();
+        QMessageBox::critical(this, "Error", "Failed to apply some distance changes.");
+    }
+}
+
+void AdminPanel::cancelDistanceChanges()
+{
+    if (pendingDistanceChanges.isEmpty()) {
+        return;
+    }
+    
+    if (QMessageBox::question(this, "Cancel Changes", 
+                            "Are you sure you want to cancel all distance changes?",
+                            QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
+        // Reload distances to discard changes
+        disconnect(ui->distancesTable, &QTableWidget::itemChanged, this, &AdminPanel::onDistanceChanged);
+        pendingDistanceChanges.clear();
+        hasUnsavedChanges = false;
+        loadDistances();
+    }
+}
+
+void AdminPanel::closeDistancesTab()
 {
     if (hasUnsavedChanges) {
-        QMessageBox::StandardButton reply = QMessageBox::question(this, 
-            "Unsaved Changes",
-            "You have unsaved changes. Are you sure you want to discard them?",
-            QMessageBox::Yes | QMessageBox::No);
-            
-        if (reply == QMessageBox::Yes) {
-            revertChanges();
-            QDialog::reject();  // Call base class implementation
+        int result = QMessageBox::question(this, "Unsaved Changes", 
+                                         "You have unsaved distance changes. Do you want to save before closing?", 
+                                         QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+        
+        if (result == QMessageBox::Yes) {
+            applyDistanceChanges();
+            if (!hasUnsavedChanges) {
+                reject(); // Close dialog only if changes were successfully applied
+            }
+        } else if (result == QMessageBox::No) {
+            pendingDistanceChanges.clear();
+            hasUnsavedChanges = false;
+            reject(); // Close dialog without saving
         }
-        // If No, do nothing and stay in dialog
+        // If Cancel, do nothing
     } else {
-        QDialog::reject();  // Call base class implementation
-    }
-}
-
-void AdminPanel::on_tabWidget_currentChanged(int index)
-{
-    // Hide all buttons first
-    ui->addCollegeButton->setVisible(false);
-    ui->editCollegeButton->setVisible(false);
-    ui->deleteCollegeButton->setVisible(false);
-    ui->addUserButton->setVisible(false);
-    ui->editUserButton->setVisible(false);
-    ui->deleteUserButton->setVisible(false);
-    ui->addSouvenirButton->setVisible(false);
-    ui->deleteSouvenirButton->setVisible(false);
-
-    // Show only the relevant buttons based on the selected tab
-    switch(index) {
-        case 0: // Colleges tab
-            ui->addCollegeButton->setVisible(true);
-            ui->editCollegeButton->setVisible(true);
-            ui->deleteCollegeButton->setVisible(true);
-            break;
-        case 1: // Distances tab
-            // Typically distance editing uses the college buttons or special distance buttons
-            // If there are specific distance buttons, show them here
-            break;
-        case 2: // Souvenirs tab
-            ui->addSouvenirButton->setVisible(true);
-            ui->deleteSouvenirButton->setVisible(true);
-            break;
-        case 3: // Users tab
-            ui->addUserButton->setVisible(true);
-            ui->editUserButton->setVisible(true);
-            ui->deleteUserButton->setVisible(true);
-            break;
-    }
-}
-
-void AdminPanel::on_addUserButton_clicked()
-{
-    bool ok;
-    QString username = QInputDialog::getText(this, "Add User", 
-                                          "Username:", QLineEdit::Normal, 
-                                          "", &ok);
-    if (!ok || username.isEmpty()) return;
-
-    QString password = QInputDialog::getText(this, "Add User", 
-                                          "Password:", QLineEdit::Password, 
-                                          "", &ok);
-    if (!ok || password.isEmpty()) return;
-    
-    bool isAdmin = QMessageBox::question(this, "Add User", 
-                                       "Should this user be an administrator?",
-                                       QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes;
-    
-    if (dbManager->addUser(username, password, isAdmin)) {
-        QMessageBox::information(this, "Success", "User added successfully");
-        // Refresh users list if you have a table for users
-        // loadUsers();
-    } else {
-        QMessageBox::warning(this, "Error", "Failed to add user. Username may already exist.");
-    }
-}
-
-void AdminPanel::on_editUserButton_clicked()
-{
-    // Get users from DB
-    QVector<DBManager::UserInfo> users = dbManager->getAllUsers();
-    
-    if (users.isEmpty()) {
-        QMessageBox::information(this, "No Users", "There are no users to edit.");
-        return;
-    }
-    
-    // Create a list of usernames for selection
-    QStringList usernames;
-    for (const auto& user : users) {
-        usernames << user.username;
-    }
-    
-    bool ok;
-    QString selectedUsername = QInputDialog::getItem(this, "Edit User", 
-                                                "Select user to edit:", 
-                                                usernames, 0, false, &ok);
-    if (!ok || selectedUsername.isEmpty()) return;
-    
-    // Find the user info
-    DBManager::UserInfo selectedUser;
-    for (const auto& user : users) {
-        if (user.username == selectedUsername) {
-            selectedUser = user;
-            break;
-        }
-    }
-    
-    // Get new username
-    QString newUsername = QInputDialog::getText(this, "Edit User", 
-                                             "New Username:", QLineEdit::Normal, 
-                                             selectedUser.username, &ok);
-    if (!ok) return;
-    
-    // Get new password (optional)
-    QString newPassword = QInputDialog::getText(this, "Edit User", 
-                                             "New Password (leave empty to keep current):", 
-                                             QLineEdit::Password, "", &ok);
-    if (!ok) return;
-    
-    // Get admin status
-    bool isAdmin = QMessageBox::question(this, "Edit User", 
-                                       "Should this user be an administrator?",
-                                       QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes;
-    
-    if (dbManager->updateUser(selectedUser.id, newUsername, newPassword, isAdmin)) {
-        QMessageBox::information(this, "Success", "User updated successfully");
-        // Refresh users list if you have a table for users
-        // loadUsers();
-    } else {
-        QMessageBox::warning(this, "Error", "Failed to update user.");
-    }
-}
-
-void AdminPanel::on_deleteUserButton_clicked()
-{
-    // Get users from DB
-    QVector<DBManager::UserInfo> users = dbManager->getAllUsers();
-    
-    if (users.isEmpty()) {
-        QMessageBox::information(this, "No Users", "There are no users to delete.");
-        return;
-    }
-    
-    // Create a list of usernames for selection
-    QStringList usernames;
-    for (const auto& user : users) {
-        usernames << user.username;
-    }
-    
-    bool ok;
-    QString selectedUsername = QInputDialog::getItem(this, "Delete User", 
-                                                  "Select user to delete:", 
-                                                  usernames, 0, false, &ok);
-    if (!ok || selectedUsername.isEmpty()) return;
-    
-    // Find the user info
-    DBManager::UserInfo selectedUser;
-    for (const auto& user : users) {
-        if (user.username == selectedUsername) {
-            selectedUser = user;
-            break;
-        }
-    }
-    
-    // Confirm deletion
-    if (QMessageBox::question(this, "Confirm Delete", 
-                           "Are you sure you want to delete user '" + selectedUsername + "'?",
-                           QMessageBox::Yes | QMessageBox::No) == QMessageBox::No) {
-        return;
-    }
-    
-    if (dbManager->deleteUser(selectedUser.id)) {
-        QMessageBox::information(this, "Success", "User deleted successfully");
-        // Refresh users list if you have a table for users
-        // loadUsers();
-    } else {
-        QMessageBox::warning(this, "Error", "Failed to delete user. The user may not exist or an error occurred.");
+        reject(); // Close dialog
     }
 } 

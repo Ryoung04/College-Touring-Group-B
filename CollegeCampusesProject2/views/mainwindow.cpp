@@ -10,11 +10,18 @@
 #include <QPushButton>
 #include <QShortcut>
 #include "utils/animatedbackground.h"
+#include "views/loginwindow.h"
+#include <QFile>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QGroupBox>
+#include <QSpacerItem>
 
 MainWindow::MainWindow(DBManager* db, bool isAdmin, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , dbManager(nullptr)
+    , souvenirTripManager(new SouvenirTripManager(this))
     , isAdmin(isAdmin)
 {
     // Set the database pointer before UI setup
@@ -89,14 +96,16 @@ MainWindow::MainWindow(DBManager* db, bool isAdmin, QWidget *parent)
         adminMenu->addAction(manageCollegesAction);
     }
     
-    // Initialize basic UI components
-    if (ui->souvenirsTable) {
-        ui->souvenirsTable->setColumnCount(2);
-        ui->souvenirsTable->setHorizontalHeaderLabels({"Name", "Price"});
-        if (ui->souvenirsTable->horizontalHeader()) {
-            ui->souvenirsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-        }
-    }
+    // Connect souvenirTripManager signals to update the trip planner tab
+    connect(souvenirTripManager, &SouvenirTripManager::souvenirAdded, this, &MainWindow::onSouvenirTripChanged);
+    connect(souvenirTripManager, &SouvenirTripManager::souvenirRemoved, this, &MainWindow::onSouvenirTripChanged);
+    connect(souvenirTripManager, &SouvenirTripManager::quantityChanged, this, &MainWindow::onSouvenirTripChanged);
+    
+    // Initialize souvenirs tab with proper setup
+    setupSouvenirsTab();
+    
+    // Initialize trip planner tab
+    setupTripPlannerTab();
     
     // Delay connecting signals until the window is shown
     QTimer::singleShot(100, this, [this]() {
@@ -189,22 +198,18 @@ void MainWindow::refreshAllData()
 
 void MainWindow::on_actionManageColleges_triggered()
 {
-    if (!dbManager) return;
-    
     AdminPanel* adminPanel = new AdminPanel(dbManager, this);
     
-    // Simplified connections that call our comprehensive refresh
-    connect(adminPanel, &AdminPanel::collegesChanged, this, &MainWindow::refreshAllData, Qt::DirectConnection);
-    connect(adminPanel, &AdminPanel::souvenirsChanged, this, &MainWindow::refreshAllData, Qt::DirectConnection);
-    connect(adminPanel, &AdminPanel::distancesChanged, this, &MainWindow::refreshAllData, Qt::DirectConnection);
-    connect(adminPanel, &QDialog::finished, this, &MainWindow::refreshAllData, Qt::DirectConnection);
+    // Connect signals to refresh data when admin panel makes changes
+    connect(adminPanel, &AdminPanel::collegesChanged, this, &MainWindow::refreshAllData);
+    connect(adminPanel, &AdminPanel::souvenirsChanged, this, &MainWindow::refreshAllData);
+    connect(adminPanel, &AdminPanel::distancesChanged, this, &MainWindow::refreshAllData);
+    connect(adminPanel, &QDialog::finished, this, &MainWindow::refreshAllData);
     
     adminPanel->exec();
     
-    // One more refresh after dialog is fully closed
-    QTimer::singleShot(100, this, &MainWindow::refreshAllData);
-    
-    delete adminPanel;
+    // Clean up
+    adminPanel->deleteLater();
 }
 
 void MainWindow::showDistancesTab()
@@ -319,23 +324,8 @@ void MainWindow::refreshSouvenirs()
         return;
     }
     
-    QVector<QPair<QString, double>> souvenirs = dbManager->getSouvenirs(selectedCollege);
-    souvenirsTable->setRowCount(souvenirs.size());
-    
-    for (int i = 0; i < souvenirs.size(); ++i) {
-        QTableWidgetItem* nameItem = new QTableWidgetItem(souvenirs.at(i).first);
-        QTableWidgetItem* priceItem = new QTableWidgetItem(
-            QString::number(souvenirs.at(i).second, 'f', 2));
-        
-        // Ensure items are not editable by setting appropriate flags
-        nameItem->setFlags(nameItem->flags() & ~Qt::ItemIsEditable);
-        priceItem->setFlags(priceItem->flags() & ~Qt::ItemIsEditable);
-        
-        souvenirsTable->setItem(i, 0, nameItem);
-        souvenirsTable->setItem(i, 1, priceItem);
-    }
-    
-    souvenirsTable->sortItems(0);
+    // Instead of duplicating code, just call the loadSouvenirs method
+    loadSouvenirs(selectedCollege);
 }
 
 void MainWindow::refreshDistances()
@@ -755,4 +745,267 @@ MainWindow::~MainWindow()
 {
     // No signal emission
     delete ui;
+    delete souvenirTripManager;
+}
+
+void MainWindow::loadColleges()
+{
+    QVector<Campus> campuses = dbManager->getAllCampuses();
+    
+    // Store current selection
+    QString currentSelection = ui->collegeComboBox->currentText();
+    
+    // Block signals while updating
+    ui->collegeComboBox->blockSignals(true);
+    
+    ui->collegeComboBox->clear();
+    ui->collegeComboBox->addItem("Select a college");
+    
+    for (const Campus& campus : campuses) {
+        ui->collegeComboBox->addItem(campus.getName());
+    }
+    
+    // Restore previous selection if it exists
+    int index = ui->collegeComboBox->findText(currentSelection);
+    if (index != -1) {
+        ui->collegeComboBox->setCurrentIndex(index);
+    }
+    
+    ui->collegeComboBox->blockSignals(false);
+    
+    // Load souvenirs for the selected college
+    if (ui->collegeComboBox->currentText() != "Select a college") {
+        loadSouvenirs(ui->collegeComboBox->currentText());
+    }
+}
+
+void MainWindow::setupSouvenirsTab()
+{
+    // Check if souvenirs tab exists, create it if not
+    if (!ui->souvenirsTab) {
+        qDebug() << "Souvenirs tab not found in UI, unable to setup.";
+        return;
+    }
+    
+    // Set up the souvenirs table
+    if (ui->souvenirsTable) {
+        ui->souvenirsTable->setColumnCount(3);  // Name, Price, Action
+        ui->souvenirsTable->setHorizontalHeaderLabels({"Name", "Price", "Action"});
+        ui->souvenirsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        ui->souvenirsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        ui->souvenirsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    } else {
+        // If the table doesn't exist in the UI, create it
+        ui->souvenirsTable = new QTableWidget(ui->souvenirsTab);
+        ui->souvenirsTable->setColumnCount(3);  // Name, Price, Action
+        ui->souvenirsTable->setHorizontalHeaderLabels({"Name", "Price", "Action"});
+        ui->souvenirsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        ui->souvenirsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        ui->souvenirsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        
+        // Add it to the layout
+        QVBoxLayout* layout = new QVBoxLayout(ui->souvenirsTab);
+        layout->addWidget(ui->souvenirsTable);
+    }
+}
+
+void MainWindow::setupTripPlannerTab()
+{
+    // Check if trip planner tab exists
+    if (!ui->tripPlannerTab) {
+        qDebug() << "Trip planner tab not found in UI, unable to setup.";
+        return;
+    }
+    
+    // Create a group box for selected souvenirs
+    QGroupBox* selectedSouvenirsGroup = new QGroupBox("Selected Souvenirs");
+    QVBoxLayout* groupLayout = new QVBoxLayout(selectedSouvenirsGroup);
+    
+    // Create a table for selected souvenirs
+    tripSouvenirsTable = new QTableWidget(selectedSouvenirsGroup);
+    tripSouvenirsTable->setColumnCount(6); // College, Name, Price, Quantity, Total, Action
+    tripSouvenirsTable->setHorizontalHeaderLabels({"College", "Souvenir", "Price", "Quantity", "Total", "Action"});
+    tripSouvenirsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    tripSouvenirsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    groupLayout->addWidget(tripSouvenirsTable);
+    
+    // Add a label for total cost
+    totalCostLabel = new QLabel("Total Cost: $0.00");
+    totalCostLabel->setAlignment(Qt::AlignRight);
+    totalCostLabel->setFont(QFont("", 12, QFont::Bold));
+    groupLayout->addWidget(totalCostLabel);
+    
+    // Add the group box to the tab
+    QVBoxLayout* tabLayout = nullptr;
+    
+    // Check if there's already a layout
+    if (ui->tripPlannerTab->layout()) {
+        tabLayout = qobject_cast<QVBoxLayout*>(ui->tripPlannerTab->layout());
+    } else {
+        tabLayout = new QVBoxLayout(ui->tripPlannerTab);
+    }
+    
+    // Add the souvenirs group to the layout
+    tabLayout->addWidget(selectedSouvenirsGroup);
+    
+    // Update the selected souvenirs display
+    onSouvenirTripChanged();
+}
+
+void MainWindow::on_collegeComboBox_currentIndexChanged(int index)
+{
+    if (index <= 0) { // "Select a college" or invalid index
+        if (ui->souvenirsTable) {
+            ui->souvenirsTable->clearContents();
+            ui->souvenirsTable->setRowCount(0);
+        }
+        return;
+    }
+    
+    QString collegeName = ui->collegeComboBox->currentText();
+    loadSouvenirs(collegeName);
+}
+
+void MainWindow::loadSouvenirs(const QString& collegeName)
+{
+    if (collegeName == "Select a college" || !ui->souvenirsTable) {
+        return;
+    }
+    
+    // Make sure the table has 3 columns
+    if (ui->souvenirsTable->columnCount() != 3) {
+        ui->souvenirsTable->setColumnCount(3);
+        ui->souvenirsTable->setHorizontalHeaderLabels({"Name", "Price", "Action"});
+        ui->souvenirsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    }
+    
+    QVector<QPair<QString, double>> souvenirs = dbManager->getSouvenirs(collegeName);
+    ui->souvenirsTable->setRowCount(souvenirs.size());
+    
+    for (int i = 0; i < souvenirs.size(); ++i) {
+        // Add Name
+        QTableWidgetItem* nameItem = new QTableWidgetItem(souvenirs[i].first);
+        ui->souvenirsTable->setItem(i, 0, nameItem);
+        
+        // Add Price
+        QTableWidgetItem* priceItem = new QTableWidgetItem(
+            QString("$%1").arg(souvenirs[i].second, 0, 'f', 2));
+        ui->souvenirsTable->setItem(i, 1, priceItem);
+        
+        // Add "Add to Trip" button
+        QPushButton* addButton = new QPushButton("Add to Trip");
+        addButton->setProperty("row", i);
+        addButton->setProperty("collegeName", collegeName);
+        addButton->setProperty("souvenirName", souvenirs[i].first);
+        addButton->setProperty("price", souvenirs[i].second);
+        
+        connect(addButton, &QPushButton::clicked, this, &MainWindow::addSouvenirToTrip);
+        
+        ui->souvenirsTable->setCellWidget(i, 2, addButton);
+    }
+    
+    // Debug output to confirm buttons were added
+    qDebug() << "Loaded" << souvenirs.size() << "souvenirs with Add to Trip buttons for" << collegeName;
+}
+
+void MainWindow::addSouvenirToTrip()
+{
+    QPushButton* button = qobject_cast<QPushButton*>(sender());
+    if (!button) return;
+    
+    QString collegeName = button->property("collegeName").toString();
+    QString souvenirName = button->property("souvenirName").toString();
+    double price = button->property("price").toDouble();
+    
+    souvenirTripManager->addSouvenir(collegeName, souvenirName, price);
+    
+    // Explicitly refresh the trip souvenirs display
+    onSouvenirTripChanged();
+    
+    // Show a brief confirmation message
+    QMessageBox::information(this, "Added to Trip", 
+                           QString("Added %1 from %2 to your trip.").arg(souvenirName).arg(collegeName));
+}
+
+void MainWindow::removeSouvenirFromTrip()
+{
+    QPushButton* button = qobject_cast<QPushButton*>(sender());
+    if (!button) return;
+    
+    int index = button->property("index").toInt();
+    souvenirTripManager->removeSouvenir(index);
+    
+    // Explicitly refresh the trip souvenirs display
+    onSouvenirTripChanged();
+}
+
+void MainWindow::onSouvenirTripChanged()
+{
+    if (!tripSouvenirsTable) return;
+    
+    // Get the souvenirs and update the table
+    QVector<SouvenirTripManager::TripSouvenir> souvenirs = souvenirTripManager->getSouvenirs();
+    
+    tripSouvenirsTable->setRowCount(souvenirs.size());
+    
+    for (int i = 0; i < souvenirs.size(); ++i) {
+        const SouvenirTripManager::TripSouvenir& souvenir = souvenirs[i];
+        
+        tripSouvenirsTable->setItem(i, 0, new QTableWidgetItem(souvenir.collegeName));
+        tripSouvenirsTable->setItem(i, 1, new QTableWidgetItem(souvenir.name));
+        tripSouvenirsTable->setItem(i, 2, new QTableWidgetItem(QString("$%1").arg(souvenir.price, 0, 'f', 2)));
+        tripSouvenirsTable->setItem(i, 3, new QTableWidgetItem(QString::number(souvenir.quantity)));
+        tripSouvenirsTable->setItem(i, 4, new QTableWidgetItem(QString("$%1").arg(souvenir.totalPrice(), 0, 'f', 2)));
+        
+        // Add a remove button
+        QPushButton* removeButton = new QPushButton("Remove");
+        removeButton->setProperty("index", i);
+        connect(removeButton, &QPushButton::clicked, this, &MainWindow::removeSouvenirFromTrip);
+        
+        tripSouvenirsTable->setCellWidget(i, 5, removeButton);
+    }
+    
+    // Update the total cost label
+    updateTripCostLabel();
+}
+
+void MainWindow::updateTripCostLabel()
+{
+    if (totalCostLabel) {
+        totalCostLabel->setText(QString("Total Cost: $%1").arg(souvenirTripManager->getTotalCost(), 0, 'f', 2));
+    }
+}
+
+void MainWindow::on_actionLogin_triggered()
+{
+    // Create LoginWindow as a QMainWindow (not a dialog)
+    LoginWindow* loginWindow = new LoginWindow(dbManager, this);
+    
+    // Since LoginWindow is a QMainWindow, it doesn't have exec()
+    // Instead we'll just show it and hide the current window
+    loginWindow->show();
+    
+    // Hide the current window
+    this->hide();
+    
+    // Connect a signal to know when the login window is closed
+    connect(loginWindow, &QObject::destroyed, this, [this]() {
+        // Show this window again when the login window is closed
+        this->show();
+    });
+}
+
+void MainWindow::onCollegesChanged()
+{
+    loadColleges();
+}
+
+void MainWindow::onSouvenirsChanged()
+{
+    loadSouvenirs(ui->collegeComboBox->currentText());
+}
+
+void MainWindow::onDistancesChanged()
+{
+    // Reload any distance-related data if needed
 } 

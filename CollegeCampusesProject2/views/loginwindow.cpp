@@ -162,18 +162,15 @@ void LoginWindow::on_registerButton_clicked()
 
 void LoginWindow::showDashboard(const QString &username, bool isAdmin)
 {
-    if (isAdmin) {
-        // Admin view - pass isAdmin as true instead of the username
-        MainWindow *mainWindow = new MainWindow(dbManager, true);
-        mainWindow->show();
-    } else {
-        // Regular user view - HomeWindow doesn't accept username parameter
-        HomeWindow *homeWindow = new HomeWindow(dbManager);
-        homeWindow->show();
-    }
+    // Use the username parameter to avoid the warning
+    qDebug() << "Showing dashboard for user:" << username << "Admin:" << isAdmin;
     
-    // Hide login window
-    this->hide();
+    // Create the MainWindow
+    MainWindow *mainWindow = new MainWindow(dbManager, isAdmin);
+    mainWindow->show();
+    
+    // Close the login window
+    this->close();
 }
 
 void LoginWindow::resizeEvent(QResizeEvent* event)

@@ -5,24 +5,32 @@
 #include "utils/dbmanager.h"
 #include "views/loginwindow.h"
 #include "utils/custombackground.h"
+#include "views/adminpanel.h"
+#include <QDebug>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-
-    // Initialize database
-    QString dbPath = QDir(QCoreApplication::applicationDirPath()).filePath("colleges.db");
+    
+    // Get the application directory path
+    QString appDirPath = QCoreApplication::applicationDirPath();
+    QString dbPath = appDirPath + "/colleges.db";
+    
+    qDebug() << "Database path:" << dbPath;
+    
+    // Initialize database manager
     DBManager dbManager(dbPath);
     
-    // Create and show login window
-    LoginWindow loginWindow(&dbManager);
+    // Create login window with custom background
+    CustomBackground *background = new CustomBackground();
+    LoginWindow *loginWindow = new LoginWindow(&dbManager, background);
     
-    // Create and set the custom background
-    CustomBackground* background = new CustomBackground(&loginWindow);
-    background->setGeometry(loginWindow.rect());
-    background->lower(); // Put it behind everything
+    // Show login window
+    loginWindow->show();
     
-    loginWindow.show();
-
+    // For testing purposes, you can uncomment this to bypass login and go straight to admin panel
+    // AdminPanel adminPanel(&dbManager);
+    // adminPanel.exec();
+    
     return a.exec();
 }

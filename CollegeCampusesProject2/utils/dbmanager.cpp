@@ -105,11 +105,10 @@ bool DBManager::createTables()
     // Create users table
     if (!query.exec(
         "CREATE TABLE IF NOT EXISTS users ("
-        "    id TEXT PRIMARY KEY,"
+        "    id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "    username TEXT UNIQUE NOT NULL,"
         "    password TEXT NOT NULL,"
-        "    is_admin BOOLEAN NOT NULL DEFAULT 0,"
-        "    date_created DATETIME DEFAULT CURRENT_TIMESTAMP"
+        "    is_admin INTEGER NOT NULL DEFAULT 0"
         ")"
     )) {
         qDebug() << "Failed to create users table:" << query.lastError().text();
@@ -119,13 +118,16 @@ bool DBManager::createTables()
     // Create initial admin user if users table is empty
     query.exec("SELECT COUNT(*) FROM users");
     if (query.next() && query.value(0).toInt() == 0) {
-        QString adminId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        // Use question mark placeholders for consistency
+        query.prepare("INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)");
         
-        // Store admin123 as plaintext for admin user to ensure it works
-        query.prepare("INSERT INTO users (id, username, password, is_admin) VALUES (?, ?, ?, 1)");
-        query.addBindValue(adminId);
+        // Hash the password
+        QString passwordHash = QString(QCryptographicHash::hash(
+            QString("admin123").toUtf8(), QCryptographicHash::Sha256).toHex());
+        
         query.addBindValue("admin");
-        query.addBindValue("admin123");
+        query.addBindValue(passwordHash);
+        query.addBindValue(1);
         
         if (!query.exec()) {
             qDebug() << "Failed to create admin user:" << query.lastError().text();
@@ -723,104 +725,167 @@ void DBManager::debugPrintSouvenirs() const
 
 QVector<DBManager::UserInfo> DBManager::getAllUsers() const
 {
+    qDebug() << "Getting all users";
+    
     QVector<UserInfo> users;
+    
     QSqlQuery query(m_db);
-    
-    qDebug() << "Fetching all users from database...";
-    
-    if (!query.exec("SELECT id, username, is_admin FROM users ORDER BY username")) {
-        qDebug() << "Error fetching users:" << query.lastError().text();
-        return users;
-    }
+    query.exec("SELECT id, username, password, is_admin FROM users");
     
     while (query.next()) {
         UserInfo user;
-        user.id = query.value(0).toString();
+        user.id = query.value(0).toString();  // Ensure ID is handled as a string
         user.username = query.value(1).toString();
-        user.isAdmin = query.value(2).toBool();
+        user.password = query.value(2).toString();
+        user.isAdmin = query.value(3).toBool();
         
-        qDebug() << "Found user:" << user.username 
-                 << "ID:" << user.id 
-                 << "isAdmin:" << user.isAdmin;
-                 
         users.append(user);
     }
     
-    qDebug() << "Total users found:" << users.size();
+    qDebug() << "Found" << users.size() << "users";
+    
     return users;
 }
 
 bool DBManager::addUser(const QString& username, const QString& password, bool isAdmin)
 {
-    QSqlQuery query(m_db);
-    query.prepare("INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)");
-    query.addBindValue(username);
-    query.addBindValue(password); // Note: In a real app, you'd want to hash this
-    query.addBindValue(isAdmin);
+    qDebug() << "DBManager::addUser - Adding user:" << username << "isAdmin:" << isAdmin;
     
-    return query.exec();
-}
-
-bool DBManager::updateUser(const QString& id, const QString& username, const QString& password, bool isAdmin)
-{
-    if (isOriginalAdmin(id) && !isAdmin) {
-        qDebug() << "Cannot remove admin status from original admin";
+    try {
+        // Hash the password
+        QString passwordHash = QString(QCryptographicHash::hash(
+            password.toUtf8(), QCryptographicHash::Sha256).toHex());
+        qDebug() << "Password hashed, length:" << passwordHash.length();
+        
+        QSqlQuery query(m_db);
+        query.prepare("INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)");
+        query.addBindValue(username);
+        query.addBindValue(passwordHash);
+        query.addBindValue(isAdmin ? 1 : 0);
+        
+        qDebug() << "Executing SQL query to add user...";
+        bool success = query.exec();
+        
+        if (!success) {
+            qDebug() << "Failed to add user. SQL error:" << query.lastError().text();
+        } else {
+            qDebug() << "User added successfully to database";
+        }
+        
+        return success;
+    }
+    catch (const std::exception& e) {
+        qDebug() << "Exception in addUser:" << e.what();
         return false;
     }
+}
+
+bool DBManager::updateUser(const QString& userId, const QString& newUsername, const QString& newPassword, bool isAdmin)
+{
+    qDebug() << "Updating user ID:" << userId;
     
     QSqlQuery query(m_db);
-    if (password.isEmpty()) {
-        // Update without changing password
-        query.prepare("UPDATE users SET username = ?, is_admin = ? WHERE id = ?");
-        query.addBindValue(username);
-        query.addBindValue(isAdmin);
-        query.addBindValue(id);
+    
+    // If a new password is provided, update it too
+    if (!newPassword.isEmpty()) {
+        // Hash the new password
+        QByteArray passwordHash = QCryptographicHash::hash(newPassword.toUtf8(), QCryptographicHash::Sha256).toHex();
+        
+        query.prepare("UPDATE users SET username = :username, password = :password, is_admin = :is_admin WHERE id = :id");
+        query.bindValue(":username", newUsername);
+        query.bindValue(":password", QString(passwordHash));
+        query.bindValue(":is_admin", isAdmin ? 1 : 0);
+        query.bindValue(":id", userId);
     } else {
-        // Update including new password
-        QString hashedPassword = QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex();
-        query.prepare("UPDATE users SET username = ?, password = ?, is_admin = ? WHERE id = ?");
-        query.addBindValue(username);
-        query.addBindValue(hashedPassword);
-        query.addBindValue(isAdmin);
-        query.addBindValue(id);
+        // Don't update the password
+        query.prepare("UPDATE users SET username = :username, is_admin = :is_admin WHERE id = :id");
+        query.bindValue(":username", newUsername);
+        query.bindValue(":is_admin", isAdmin ? 1 : 0);
+        query.bindValue(":id", userId);
     }
     
-    return query.exec();
+    bool success = query.exec();
+    if (!success) {
+        qDebug() << "Failed to update user:" << query.lastError().text();
+    } else {
+        qDebug() << "User updated successfully";
+    }
+    
+    return success;
 }
 
-bool DBManager::deleteUser(const QString& id)
+bool DBManager::deleteUser(const QString& userId)
 {
-    if (isOriginalAdmin(id)) {
-        qDebug() << "Cannot delete original admin user";
-        return false;
-    }
+    qDebug() << "Deleting user ID:" << userId;
     
     QSqlQuery query(m_db);
     query.prepare("DELETE FROM users WHERE id = ?");
-    query.addBindValue(id);
+    query.addBindValue(userId);
     
-    return query.exec();
+    bool success = query.exec();
+    if (!success) {
+        qDebug() << "Failed to delete user:" << query.lastError().text();
+    } else {
+        qDebug() << "User deleted successfully";
+    }
+    
+    return success;
 }
 
 bool DBManager::isOriginalAdmin(const QString& id) const
 {
+    // Check if this is the original admin user
     QSqlQuery query(m_db);
-    query.prepare("SELECT id FROM users WHERE id = ? AND username = 'admin'");
-    query.addBindValue(id);
+    query.prepare("SELECT id FROM users WHERE username = 'admin' LIMIT 1");
     
-    return query.exec() && query.next();
+    if (query.exec() && query.next()) {
+        QString adminId = query.value(0).toString();
+        return id == adminId;
+    }
+    
+    return false;
+}
+
+bool DBManager::validateUser(const QString& username, const QString& password, bool& isAdmin)
+{
+    qDebug() << "Validating user:" << username;
+    
+    // Hash the password for all users (including admin)
+    QString passwordHash = QString(QCryptographicHash::hash(
+        password.toUtf8(), QCryptographicHash::Sha256).toHex());
+    
+    QSqlQuery query(m_db);
+    query.prepare("SELECT is_admin FROM users WHERE username = ? AND password = ?");
+    query.addBindValue(username);
+    query.addBindValue(passwordHash);
+    
+    if (query.exec() && query.next()) {
+        isAdmin = query.value(0).toBool();
+        qDebug() << "User validated successfully. Admin:" << isAdmin;
+        return true;
+    } else {
+        qDebug() << "User validation failed";
+        return false;
+    }
 }
 
 bool DBManager::validateUser(const QString& username, const QString& password)
 {
+    bool isAdmin;
+    return validateUser(username, password, isAdmin);
+}
+
+bool DBManager::userExists(const QString& username)
+{
     QSqlQuery query(m_db);
-    QString hashedPassword = QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex();
-    
-    query.prepare("SELECT id FROM users WHERE username = ? AND password = ?");
+    query.prepare("SELECT COUNT(*) FROM users WHERE username = ?");
     query.addBindValue(username);
-    query.addBindValue(hashedPassword);
     
-    return query.exec() && query.next();
+    if (query.exec() && query.next()) {
+        return query.value(0).toInt() > 0;
+    }
+    
+    return false;
 }
 
 bool DBManager::isUserAdmin(const QString& username)
@@ -829,63 +894,36 @@ bool DBManager::isUserAdmin(const QString& username)
     query.prepare("SELECT is_admin FROM users WHERE username = ?");
     query.addBindValue(username);
     
-    return query.exec() && query.next() && query.value(0).toBool();
-}
-
-bool DBManager::createUser(const QString& username, const QString& password, bool isAdmin)
-{
-    QSqlQuery query(m_db);
-    QString userId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    QString hashedPassword = QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex();
-    
-    query.prepare("INSERT INTO users (id, username, password, is_admin) VALUES (?, ?, ?, ?)");
-    query.addBindValue(userId);
-    query.addBindValue(username);
-    query.addBindValue(hashedPassword);
-    query.addBindValue(isAdmin);
-    
-    return query.exec();
-}
-
-// Validate user credentials and determine if user is admin
-bool DBManager::validateCredentials(const QString &username, const QString &password, bool *isAdmin)
-{
-    QSqlQuery query(m_db);
-    query.prepare("SELECT password, is_admin FROM users WHERE username = :username");
-    query.bindValue(":username", username);
-    
     if (query.exec() && query.next()) {
-        QString storedPassword = query.value(0).toString();
-        bool userIsAdmin = query.value(1).toBool();
-        
-        // Check if this is the admin account with direct password comparison
-        if (username == "admin" && password == "admin123") {
-            if (isAdmin != nullptr) {
-                *isAdmin = true;
-            }
-            return true;
-        }
-        
-        // For other accounts, check if password matches (may be hashed)
-        QString hashedPassword = QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex();
-        if (hashedPassword == storedPassword || password == storedPassword) {
-            // If the caller wants to know if user is admin, set the outparam
-            if (isAdmin != nullptr) {
-                *isAdmin = userIsAdmin;
-            }
-            return true;
-        }
+        return query.value(0).toBool();
     }
     
     return false;
 }
 
-// Check if a username already exists in the database
-bool DBManager::userExists(const QString &username)
+bool DBManager::createUser(const QString& username, const QString& password, bool isAdmin)
+{
+    return addUser(username, password, isAdmin);
+}
+
+bool DBManager::validateCredentials(const QString& username, const QString& password, bool* isAdmin)
+{
+    bool admin;
+    bool valid = validateUser(username, password, admin);
+    
+    if (valid && isAdmin) {
+        *isAdmin = admin;
+    }
+    
+    return valid;
+}
+
+bool DBManager::executeSQL(const QString& sql)
 {
     QSqlQuery query(m_db);
-    query.prepare("SELECT 1 FROM users WHERE username = :username");
-    query.bindValue(":username", username);
-    
-    return query.exec() && query.next();
+    bool success = query.exec(sql);
+    if (!success) {
+        qDebug() << "SQL Error:" << query.lastError().text();
+    }
+    return success;
 } 

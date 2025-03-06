@@ -9,6 +9,9 @@
 #include <QListWidget>
 #include <QGroupBox>
 #include "../utils/dbmanager.h"
+#include "../utils/souvenirtripmanager.h"
+#include <QTableWidget>
+#include <QLabel>
 
 namespace Ui {
 class MainWindow;
@@ -19,7 +22,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(DBManager* db, bool isAdmin = false, QWidget *parent = nullptr);
+    MainWindow(DBManager* db, bool isAdmin, QWidget *parent = nullptr);
     ~MainWindow();
     void showDistancesTab();
     void showSouvenirsTab();
@@ -28,6 +31,22 @@ public:
     void setIsAdmin(bool admin);
 
 private slots:
+    // Admin-related slots
+    void on_actionLogin_triggered();
+    void onCollegesChanged();
+    void onSouvenirsChanged();
+    void onDistancesChanged();
+    
+    // Trip-related slots
+    void on_collegeComboBox_currentIndexChanged(int index);
+    void loadSouvenirs(const QString& collegeName);
+    void addSouvenirToTrip();
+    void removeSouvenirFromTrip();
+    void onSouvenirTripChanged();
+    void updateTripCostLabel();
+    
+    // Add a slot for displaying selected souvenirs in the trip planner tab
+    void setupTripPlannerTab();
     void refreshColleges();
     void refreshSouvenirs();
     void refreshDistances();
@@ -62,7 +81,16 @@ private:
     
     Ui::MainWindow *ui;
     DBManager* dbManager;
+    SouvenirTripManager* souvenirTripManager;
+    QTableWidget* tripSouvenirsTable;
+    QLabel* totalCostLabel;
     bool isAdmin;
+    
+    // Load initial data
+    void loadColleges();
+    
+    // Helper methods for trip planning UI
+    void setupSouvenirsTab();
 };
 
 #endif // MAINWINDOW_H 

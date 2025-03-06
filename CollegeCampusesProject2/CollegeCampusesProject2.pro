@@ -19,6 +19,7 @@ SOURCES += \
     utils/dbmanager.cpp \
     utils/souvenirmanager.cpp \
     utils/animatedbackground.cpp \
+    utils/souvenirtripmanager.cpp \
     views/addcollegedialog.cpp \
     views/adminpanel.cpp \
     views/homewindow.cpp \
@@ -36,6 +37,7 @@ HEADERS += \
     utils/dbmanager.h \
     utils/souvenirmanager.h \
     utils/animatedbackground.h \
+    utils/souvenirtripmanager.h \
     views/addcollegedialog.h \
     views/adminpanel.h \
     views/homewindow.h \

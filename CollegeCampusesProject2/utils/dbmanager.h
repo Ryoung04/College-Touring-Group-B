@@ -6,6 +6,9 @@
 #include <QVector>
 #include "../models/campus.h"
 #include <QMap>
+#include <QSqlError>
+#include <QCryptographicHash>
+#include <QUuid>
 
 class DBManager
 {
@@ -37,23 +40,25 @@ public:
     struct UserInfo {
         QString id;
         QString username;
+        QString password;
         bool isAdmin;
     };
     
     QVector<UserInfo> getAllUsers() const;
     bool addUser(const QString& username, const QString& password, bool isAdmin);
-    bool updateUser(const QString& id, const QString& username, const QString& password, bool isAdmin);
-    bool deleteUser(const QString& id);
-    bool isOriginalAdmin(const QString& id) const;
-
-    // Add these method declarations in the public section
+    bool updateUser(const QString& userId, const QString& newUsername, const QString& newPassword, bool isAdmin);
+    bool deleteUser(const QString& userId);
+    bool validateUser(const QString& username, const QString& password, bool& isAdmin);
     bool validateUser(const QString& username, const QString& password);
+    bool userExists(const QString& username);
     bool isUserAdmin(const QString& username);
-    bool createUser(const QString& username, const QString& password, bool isAdmin = false);
+    bool createUser(const QString& username, const QString& password, bool isAdmin);
+    bool validateCredentials(const QString& username, const QString& password, bool* isAdmin = nullptr);
+    bool isOriginalAdmin(const QString& id) const;
+    QSqlDatabase getDB() const { return m_db; }
 
-    // User management methods
-    bool validateCredentials(const QString &username, const QString &password, bool *isAdmin = nullptr);
-    bool userExists(const QString &username);
+    // Add to public methods
+    bool executeSQL(const QString& sql);
 
 private:
     bool ensureConnection() const;

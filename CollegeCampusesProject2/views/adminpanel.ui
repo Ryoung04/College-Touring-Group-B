@@ -19,190 +19,16 @@
      <property name="currentIndex">
       <number>0</number>
      </property>
-     <widget class="QWidget" name="collegesTab">
-      <attribute name="title">
-       <string>Colleges</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="verticalLayout_2">
-       <item>
-        <widget class="QTableWidget" name="collegesTable"/>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout">
-         <item>
-          <widget class="QPushButton" name="addCollegeButton">
-           <property name="text">
-            <string>Add College</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="editCollegeButton">
-           <property name="text">
-            <string>Edit College</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="deleteCollegeButton">
-           <property name="text">
-            <string>Delete College</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="saveCollegesButton">
-           <property name="text">
-            <string>Save and Exit</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="distancesTab">
-      <attribute name="title">
-       <string>Distances</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="verticalLayout_3">
-       <item>
-        <widget class="QTableWidget" name="distancesTable"/>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="distancesButtonLayout">
-         <item>
-          <spacer name="distancesHorizontalSpacer">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QPushButton" name="distancesApplyButton">
-           <property name="text">
-            <string>Apply</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="distancesSaveExitButton">
-           <property name="text">
-            <string>Save and Exit</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="distancesCancelButton">
-           <property name="text">
-            <string>Cancel</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="souvenirsTab">
-      <attribute name="title">
-       <string>Souvenirs</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="verticalLayout_4">
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_3">
-         <item>
-          <widget class="QLabel" name="label">
-           <property name="text">
-            <string>College:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QComboBox" name="souvenirCollegeCombo"/>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <widget class="QTableWidget" name="souvenirsTable"/>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_4">
-         <item>
-          <widget class="QPushButton" name="addSouvenirButton">
-           <property name="text">
-            <string>Add Souvenir</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="deleteSouvenirButton">
-           <property name="text">
-            <string>Delete Selected Souvenir(s)</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="applySouvenirsButton">
-           <property name="text">
-            <string>Apply Changes</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="saveSouvenirsButton">
-           <property name="text">
-            <string>Save and Exit</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="cancelSouvenirsButton">
-           <property name="text">
-            <string>Cancel</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-      </layout>
-     </widget>
      <widget class="QWidget" name="usersTab">
       <attribute name="title">
        <string>Users</string>
       </attribute>
-      <layout class="QVBoxLayout" name="verticalLayout_5">
+      <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
-        <widget class="QTableWidget" name="usersTable"/>
+        <widget class="QTableView" name="usersTableView"/>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_5">
-         <item>
-          <widget class="QPushButton" name="addCollegeButton_4">
-           <property name="text">
-            <string>Add College</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="editCollegeButton_4">
-           <property name="text">
-            <string>Edit College</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="deleteCollegeButton_4">
-           <property name="text">
-            <string>Delete College</string>
-           </property>
-          </widget>
-         </item>
+        <layout class="QHBoxLayout" name="horizontalLayout">
          <item>
           <widget class="QPushButton" name="addUserButton">
            <property name="text">
@@ -224,14 +50,207 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="QPushButton" name="userTabButton">
+           <property name="text">
+            <string>User Tab</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="souvenirsTab">
+      <attribute name="title">
+       <string>Souvenirs</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_3">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QLabel" name="label">
+           <property name="text">
+            <string>College:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="souvenirCollegeCombo"/>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QTableWidget" name="souvenirsTable">
+         <column>
+          <property name="text">
+           <string>Name</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Price</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <item>
+          <widget class="QPushButton" name="addSouvenirButton">
+           <property name="text">
+            <string>Add Souvenir</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="deleteSouvenirButton">
+           <property name="text">
+            <string>Delete Souvenir</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="applySouvenirsButton">
+           <property name="text">
+            <string>Apply Changes</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="distancesTab">
+      <attribute name="title">
+       <string>Distances</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_4">
+       <item>
+        <widget class="QTableWidget" name="distancesTable">
+         <column>
+          <property name="text">
+           <string>From</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>To</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Distance</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="collegesTab">
+      <attribute name="title">
+       <string>Colleges</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_5">
+       <item>
+        <widget class="QTableWidget" name="collegesTable">
+         <column>
+          <property name="text">
+           <string>ID</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Name</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <item>
+          <widget class="QPushButton" name="addCollegeButton">
+           <property name="text">
+            <string>Add College</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="editCollegeButton">
+           <property name="text">
+            <string>Edit College</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="deleteCollegeButton">
+           <property name="text">
+            <string>Delete College</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </item>
       </layout>
      </widget>
     </widget>
    </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="closeButton">
+       <property name="text">
+        <string>Close</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
   </layout>
  </widget>
  <resources/>
- <connections/>
-</ui> 
+ <connections>
+  <connection>
+   <sender>closeButton</sender>
+   <signal>clicked()</signal>
+   <receiver>AdminPanel</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>749</x>
+     <y>579</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>399</x>
+     <y>299</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
