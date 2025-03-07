@@ -9,22 +9,22 @@ public:
     User();  // Default constructor
     User(const QString& id, const QString& username, const QString& password, bool isAdmin);  // Constructor with parameters
 
-    QString getUserId() const { return userId; }
-    QString getUsername() const { return username; }
-    QString getPassword() const { return password; }
-    bool getIsAdmin() const { return isAdmin; }
+    QString getId() const { return m_id; }
+    QString getUsername() const { return m_username; }
+    QString getPassword() const { return m_password; }
+    bool isAdmin() const { return m_isAdmin; }
     QDateTime getDateCreated() const { return dateCreated; }
 
-    void setUserId(const QString& id) { userId = id; }
-    void setUsername(const QString& name) { username = name; }
-    void setPassword(const QString& pwd) { password = pwd; }
-    void setIsAdmin(bool admin) { isAdmin = admin; }
+    void setId(const QString& id) { m_id = id; }
+    void setUsername(const QString& username) { m_username = username; }
+    void setPassword(const QString& password) { m_password = password; }
+    void setAdmin(bool isAdmin) { m_isAdmin = isAdmin; }
 
 private:
-    QString userId;
-    QString username;
-    QString password;  // This will store hashed password
-    bool isAdmin;
+    QString m_id;
+    QString m_username;
+    QString m_password;  // This will store hashed password
+    bool m_isAdmin;
     QDateTime dateCreated;
 };
 

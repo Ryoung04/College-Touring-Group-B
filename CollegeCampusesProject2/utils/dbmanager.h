@@ -9,13 +9,26 @@
 #include <QSqlError>
 #include <QCryptographicHash>
 #include <QUuid>
+#include <QObject>
+#include "../models/souvenir.h"
+#include <QDebug>
 
-class DBManager
+class DBManager : public QObject
 {
+    Q_OBJECT
+
 public:
-    explicit DBManager(const QString& path);
+    struct UserInfo {
+        QString id;
+        QString username;
+        QString password;
+        bool isAdmin;
+    };
+    
+    explicit DBManager(QObject *parent = nullptr);
     ~DBManager();
 
+    bool connectToDatabase(const QString& path);
     bool isOpen() const;
     bool createTables();
     bool importCollegesFromCSV(const QString& csvPath);
@@ -33,17 +46,10 @@ public:
     bool updateCollege(int id, const QString& newName);
     bool deleteCollege(int id);
     bool addCollegeWithDistances(const QString& name, const QMap<QString, double>& distances);
-    bool reloadDatabase();
+    void reloadDatabase();
     void debugPrintSouvenirs() const;
 
     // User management methods
-    struct UserInfo {
-        QString id;
-        QString username;
-        QString password;
-        bool isAdmin;
-    };
-    
     QVector<UserInfo> getAllUsers() const;
     bool addUser(const QString& username, const QString& password, bool isAdmin);
     bool updateUser(const QString& userId, const QString& newUsername, const QString& newPassword, bool isAdmin);
@@ -53,17 +59,34 @@ public:
     bool userExists(const QString& username);
     bool isUserAdmin(const QString& username);
     bool createUser(const QString& username, const QString& password, bool isAdmin);
-    bool validateCredentials(const QString& username, const QString& password, bool* isAdmin = nullptr);
+    bool validateCredentials(const QString& username, const QString& password, bool* isAdmin);
     bool isOriginalAdmin(const QString& id) const;
-    QSqlDatabase getDB() const { return m_db; }
+    QSqlDatabase getDB() const { return db; }
 
     // Add to public methods
     bool executeSQL(const QString& sql);
 
+    // Campus (College) management methods
+    Campus getCampus(int id);
+    bool campusExists(const QString& name);
+    bool addCampus(const QString& name);
+    bool createTable(const QString& name, const QString& columns);
+
+    // Distance management methods
+    bool addDistance(const QString& fromCollege, const QString& toCollege, double distance);
+
 private:
     bool ensureConnection() const;
-    QSqlDatabase m_db;
-    QString m_dbPath;
+    QSqlDatabase db;
+    QString dbPath;
+    
+    // Helper methods
+    bool createDistancesTable();
+    bool createUsersTable();
+    bool createCollegesTable();
+    bool createSouvenirsTable();
+    bool createOriginalAdmin();
+    bool checkIfTableExists(const QString& tableName);
 };
 
 #endif // DBMANAGER_H 

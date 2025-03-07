@@ -6,24 +6,24 @@
 
 const QString CSVHandler::USER_FILE = "users.csv";
 
-bool CSVHandler::writeUsers(const QString& filename, const QVector<User>& users) {
-    QFile file(filename);
+bool CSVHandler::writeUsers(const QString& fileName, QVector<User>& users) {
+    QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return false;
 
     QTextStream out(&file);
     
     // Write header
-    out << "userId,username,password,isAdmin,dateCreated\n";
+    out << "ID,Username,Password,IsAdmin\n";
     
-    // Write data
+    // Write user data
     for (const User& user : users) {
         QStringList fields;
-        fields << user.getUserId()
+        fields << user.getId()
                << user.getUsername()
                << user.getPassword()
-               << (user.getIsAdmin() ? "1" : "0")
-               << user.getDateCreated().toString(Qt::ISODate);
+               << (user.isAdmin() ? "1" : "0");
+        
         out << fields.join(",") << "\n";
     }
     
@@ -91,10 +91,10 @@ bool CSVHandler::validateUser(const QString& username, const QString& password) 
 
 QVector<QString> CSVHandler::convertUserToStringList(const User& user) {
     QVector<QString> fields;
-    fields.append(user.getUserId());
+    fields.append(user.getId());
     fields.append(user.getUsername());
     fields.append(user.getPassword());
-    fields.append(user.getIsAdmin() ? "1" : "0");
+    fields.append(user.isAdmin() ? "1" : "0");
     return fields;
 }
 

@@ -18,6 +18,9 @@
 #include <QLabel>
 #include <QDialog>
 #include <QTableWidget>
+#include <QFormLayout>
+#include <QDialogButtonBox>
+#include <QDoubleValidator>
 
 AdminPanel::AdminPanel(DBManager* db, QWidget *parent)
     : QDialog(parent)
@@ -508,28 +511,146 @@ void AdminPanel::on_userTabButton_clicked()
 
 void AdminPanel::on_addCollegeButton_clicked()
 {
-    qDebug() << "Add College clicked";
+    // Get all existing colleges first
+    QVector<Campus> existingColleges = dbManager->getAllCampuses();
     
-    bool ok;
-    QString collegeName = QInputDialog::getText(this, "Add College", "College Name:", QLineEdit::Normal, "", &ok);
-    if (!ok || collegeName.isEmpty()) return;
+    // Create a dialog for collecting the new college information
+    QDialog addCollegeDialog(this);
+    addCollegeDialog.setWindowTitle("Add New College");
+    addCollegeDialog.setMinimumWidth(500);
     
-    // Check if college already exists
-    QVector<Campus> existingCampuses = dbManager->getAllCampuses();
-    for (const Campus& campus : existingCampuses) {
-        if (campus.getName().toLower() == collegeName.toLower()) {
-            QMessageBox::warning(this, "Add College", "College already exists!");
-            return;
-        }
+    // Create the form layout
+    QVBoxLayout* mainLayout = new QVBoxLayout(&addCollegeDialog);
+    QFormLayout* formLayout = new QFormLayout();
+    
+    // Add college name field
+    QLineEdit* nameEdit = new QLineEdit(&addCollegeDialog);
+    formLayout->addRow("College Name:", nameEdit);
+    
+    // Add a separator
+    QFrame* line = new QFrame(&addCollegeDialog);
+    line->setFrameShape(QFrame::HLine);
+    line->setFrameShadow(QFrame::Sunken);
+    
+    // Add a label for the distances section
+    QLabel* distancesLabel = new QLabel("Distances to other colleges (miles):", &addCollegeDialog);
+    distancesLabel->setAlignment(Qt::AlignLeft);
+    distancesLabel->setStyleSheet("font-weight: bold; margin-top: 10px;");
+    
+    // Create a table for the distances
+    QTableWidget* distancesTable = new QTableWidget(&addCollegeDialog);
+    distancesTable->setColumnCount(2);
+    distancesTable->setHorizontalHeaderLabels({"College", "Distance (miles)"});
+    distancesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    distancesTable->setRowCount(existingColleges.size());
+    
+    // Add rows for each existing college
+    for (int i = 0; i < existingColleges.size(); i++) {
+        QTableWidgetItem* collegeItem = new QTableWidgetItem(existingColleges[i].getName());
+        collegeItem->setFlags(collegeItem->flags() & ~Qt::ItemIsEditable); // Make college name read-only
+        distancesTable->setItem(i, 0, collegeItem);
+        
+        // Add a double validator for the distance
+        QLineEdit* distanceEdit = new QLineEdit();
+        distanceEdit->setValidator(new QDoubleValidator(0, 10000, 2, distanceEdit));
+        distanceEdit->setPlaceholderText("Enter distance");
+        distancesTable->setCellWidget(i, 1, distanceEdit);
     }
     
-    if (dbManager->addCollege(collegeName)) {
-        QMessageBox::information(this, "Add College", "College added successfully!");
-        loadColleges();
-        updateSouvenirComboBox();
-        emit collegesChanged(); // Signal MainWindow to refresh
-    } else {
-        QMessageBox::critical(this, "Error", "Failed to add college");
+    // Add buttons
+    QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &addCollegeDialog);
+    
+    // Add widgets to layouts
+    mainLayout->addLayout(formLayout);
+    mainLayout->addWidget(line);
+    mainLayout->addWidget(distancesLabel);
+    mainLayout->addWidget(distancesTable);
+    mainLayout->addWidget(buttonBox);
+    
+    // Connect buttons
+    connect(buttonBox, &QDialogButtonBox::accepted, &addCollegeDialog, &QDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, &addCollegeDialog, &QDialog::reject);
+    
+    // Show the dialog and process the result
+    if (addCollegeDialog.exec() == QDialog::Accepted) {
+        QString collegeName = nameEdit->text().trimmed();
+        
+        // Validate the college name
+        if (collegeName.isEmpty()) {
+            QMessageBox::warning(this, "Add College", "College name cannot be empty.");
+            return;
+        }
+        
+        // Check if college already exists
+        if (dbManager->campusExists(collegeName)) {
+            QMessageBox::warning(this, "Add College", "A college with this name already exists.");
+            return;
+        }
+        
+        // Collect the distances
+        QMap<QString, double> distances;
+        bool allDistancesValid = true;
+        
+        for (int i = 0; i < existingColleges.size(); i++) {
+            QString existingCollegeName = existingColleges[i].getName();
+            QLineEdit* distanceEdit = qobject_cast<QLineEdit*>(distancesTable->cellWidget(i, 1));
+            
+            if (distanceEdit && !distanceEdit->text().isEmpty()) {
+                bool ok;
+                double distance = distanceEdit->text().toDouble(&ok);
+                
+                if (ok && distance >= 0) {
+                    distances[existingCollegeName] = distance;
+                } else {
+                    allDistancesValid = false;
+                    QMessageBox::warning(this, "Add College", 
+                                      "Invalid distance value for " + existingCollegeName + ". Please enter a valid number.");
+                    break;
+                }
+            } else {
+                allDistancesValid = false;
+                QMessageBox::warning(this, "Add College", 
+                                   "Please enter a distance for " + existingCollegeName + ".");
+                break;
+            }
+        }
+        
+        // If all distances are valid, add the college and its distances
+        if (allDistancesValid) {
+            // First, add the college
+            if (dbManager->addCampus(collegeName)) {
+                // Then add all the distances
+                bool allDistancesAdded = true;
+                
+                for (auto it = distances.begin(); it != distances.end(); ++it) {
+                    QString targetCollegeName = it.key();
+                    double distance = it.value();
+                    
+                    // Add distance in both directions (symmetric)
+                    if (!dbManager->addDistance(collegeName, targetCollegeName, distance) ||
+                        !dbManager->addDistance(targetCollegeName, collegeName, distance)) {
+                        allDistancesAdded = false;
+                        QMessageBox::warning(this, "Add College", 
+                                          "Failed to add distance between " + collegeName + " and " + targetCollegeName + ".");
+                        break;
+                    }
+                }
+                
+                if (allDistancesAdded) {
+                    QMessageBox::information(this, "Add College", 
+                                          "College '" + collegeName + "' and all distances were added successfully.");
+                    
+                    // Refresh the colleges table
+                    loadColleges();
+                    
+                    // Emit signal that colleges have changed
+                    emit collegesChanged();
+                    emit distancesChanged();
+                }
+            } else {
+                QMessageBox::warning(this, "Add College", "Failed to add college '" + collegeName + "'.");
+            }
+        }
     }
 }
 

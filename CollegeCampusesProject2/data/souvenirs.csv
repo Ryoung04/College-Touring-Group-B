@@ -1,48 +1,56 @@
-College,Traditional Souvenirs,Cost
-Arizona State University,Football Jersey,112.44
-Arizona State University,Poster,9.43
-Arizona State University,Sweatshirt,42.79
-Arizona State University,Visor,9.44
-California State University Fullerton,Canopy,96.75
-California State University Fullerton,Flag,15.76
-California State University Fullerton,Keychain,7.98
-Massachusetts Institute of Technology (MIT),Key strap,5.66
-Massachusetts Institute of Technology (MIT),Tote Bag,13.49
-Massachusetts Institute of Technology (MIT),Tumbler,8.63
-Northwestern,Bottle,7.65
-Northwestern,Bracelet,64.99
-Northwestern,Cup,8.76
-Northwestern,Necklace,44.44
-Ohio State University,Cooler,18.66
-Ohio State University,Decal,7.63
-Ohio State University,Football helmet,55.49
-Saddleback College,Hat,15.76
-Saddleback College,Sweatshirt,44.65
-Saddleback College,T-shirt,23.21
-University of Michigan,Adjustable chair,26.92
-University of Michigan,Beach towel,19.74
-University of Michigan,Bucket hat,26.46
-University of Michigan,Shorts,33.44
-University of California Irvine (UCI),Bobble head,12.12
-University of California Irvine (UCI),Pants,48.88
-University of California Irvine (UCI),Pennant,12.25
-University of California Irvine (UCI),Polo shirt,55.79
-University of California Los Angeles (UCLA),Football,54.45
-University of California Los Angeles (UCLA),Blanket,22.79
-University of California Los Angeles (UCLA),Jacket,74.98
-University of California Los Angeles (UCLA),Pen and pencil set,11.45
-University of Oregon,Auto emblem,6.96
-University of Oregon,Key ring,6.94
-University of Oregon,License plate cover,11.85
-University of Texas,Coaster set,14.94
-University of Texas,Face paint,7.53
-University of Texas,Sports chair,85.99
-University of the Pacific,Coaster set,12.73
-University of the Pacific,Lawn chair,88.79
-University of the Pacific,Reclining chair,165.44
-University of the Pacific,Temporary tattoos,7.44
-University of the Pacific,Water bottle,9.85
-University of Wisconsin,Car magnet,8.76
-University of Wisconsin,Cufflinks,56.87
-University of Wisconsin,Ring,88.98
-University of Wisconsin,Watch,104.99 
+College,Souvenir,Price
+"Arizona State University","T-Shirt",19.99
+"Arizona State University","Hat",14.99
+"Arizona State University","Pennant",9.99
+"Arizona State University","Mug",12.99
+"Arizona State University","Keychain",5.99
+"Massachusetts Institute of Technology (MIT)","T-Shirt",24.99
+"Massachusetts Institute of Technology (MIT)","Hat",19.99
+"Massachusetts Institute of Technology (MIT)","Pennant",13.99
+"Massachusetts Institute of Technology (MIT)","Mug",17.99
+"Massachusetts Institute of Technology (MIT)","Keychain",8.99
+"Northwestern","T-Shirt",21.99
+"Northwestern","Hat",16.99
+"Northwestern","Pennant",11.99
+"Northwestern","Mug",14.99
+"Northwestern","Keychain",6.99
+"Ohio State University","T-Shirt",22.99
+"Ohio State University","Hat",17.99
+"Ohio State University","Pennant",11.99
+"Ohio State University","Mug",14.99
+"Ohio State University","Keychain",7.49
+"Saddleback College","T-Shirt",18.99
+"Saddleback College","Hat",13.99
+"Saddleback College","Pennant",8.99
+"Saddleback College","Mug",11.99
+"Saddleback College","Keychain",4.99
+"University of  Michigan","T-Shirt",23.99
+"University of  Michigan","Hat",18.99
+"University of  Michigan","Pennant",12.99
+"University of  Michigan","Mug",16.99
+"University of  Michigan","Keychain",8.99
+"University of California Irvine (UCI)","T-Shirt",22.99
+"University of California Irvine (UCI)","Hat",17.99
+"University of California Irvine (UCI)","Pennant",10.99
+"University of California Irvine (UCI)","Mug",15.99
+"University of California Irvine (UCI)","Keychain",7.99
+"University of California Los Angeles (UCLA)","T-Shirt",23.99
+"University of California Los Angeles (UCLA)","Hat",18.99
+"University of California Los Angeles (UCLA)","Pennant",11.99
+"University of California Los Angeles (UCLA)","Mug",15.99
+"University of California Los Angeles (UCLA)","Keychain",7.99
+"University of Oregon","T-Shirt",21.99
+"University of Oregon","Hat",16.99
+"University of Oregon","Pennant",10.49
+"University of Oregon","Mug",14.99
+"University of Oregon","Keychain",6.49
+"University of the Pacific","T-Shirt",20.99
+"University of the Pacific","Hat",15.99
+"University of the Pacific","Pennant",9.99
+"University of the Pacific","Mug",13.99
+"University of the Pacific","Keychain",5.99
+"University of Wisconsin","T-Shirt",21.99
+"University of Wisconsin","Hat",16.99
+"University of Wisconsin","Pennant",10.99
+"University of Wisconsin","Mug",14.99
+"University of Wisconsin","Keychain",6.99 

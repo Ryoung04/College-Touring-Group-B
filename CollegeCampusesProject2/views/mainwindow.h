@@ -45,8 +45,7 @@ private slots:
     void onSouvenirTripChanged();
     void updateTripCostLabel();
     
-    // Add a slot for displaying selected souvenirs in the trip planner tab
-    void setupTripPlannerTab();
+    // General UI slots
     void refreshColleges();
     void refreshSouvenirs();
     void refreshDistances();
@@ -67,6 +66,9 @@ private slots:
     void optimizeRoute();
     void resetTrip();
     void updateTripCollegeHighlighting();
+    
+    // New method for Trip Summary Report
+    void generateTripSummaryReport();
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -91,6 +93,9 @@ private:
     
     // Helper methods for trip planning UI
     void setupSouvenirsTab();
+    
+    // Helper method to format the trip summary
+    QString formatTripSummary() const;
 };
 
 #endif // MAINWINDOW_H 

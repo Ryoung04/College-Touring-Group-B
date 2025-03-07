@@ -8,13 +8,16 @@
 #include <QUuid>
 #include <QCryptographicHash>
 
-DBManager::DBManager(const QString& path)
+DBManager::DBManager(QObject *parent) : QObject(parent)
 {
     // First check available drivers
     qDebug() << "Available SQL drivers:" << QSqlDatabase::drivers();
+}
 
+bool DBManager::connectToDatabase(const QString& path)
+{
     // Store the path for reconnection if needed
-    m_dbPath = path;
+    dbPath = path;
 
     // Remove any existing connection
     if (QSqlDatabase::contains("CAMPUS_CONNECTION")) {
@@ -22,17 +25,17 @@ DBManager::DBManager(const QString& path)
     }
 
     // Create a new connection
-    m_db = QSqlDatabase::addDatabase("QSQLITE", "CAMPUS_CONNECTION");
-    m_db.setDatabaseName(path);
+    db = QSqlDatabase::addDatabase("QSQLITE", "CAMPUS_CONNECTION");
+    db.setDatabaseName(path);
 
-    if (!m_db.open()) {
+    if (!db.open()) {
         qDebug() << "Failed to open database at:" << path;
-        qDebug() << "Error:" << m_db.lastError().text();
-        return;
+        qDebug() << "Error:" << db.lastError().text();
+        return false;
     }
 
     // Initialize database with tables
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     
     // Enable foreign keys
     query.exec("PRAGMA foreign_keys = ON");
@@ -40,26 +43,27 @@ DBManager::DBManager(const QString& path)
     // Create all tables including users table
     if (!createTables()) {
         qDebug() << "Failed to create database tables";
-        return;
+        return false;
     }
 
     qDebug() << "Database initialized successfully at:" << path;
+    return true;
 }
 
 DBManager::~DBManager()
 {
-    if (m_db.isOpen())
-        m_db.close();
+    if (db.isOpen())
+        db.close();
 }
 
 bool DBManager::isOpen() const
 {
-    return m_db.isOpen();
+    return db.isOpen();
 }
 
 bool DBManager::createTables()
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     
     // Create colleges table
     if (!query.exec(
@@ -149,13 +153,13 @@ bool DBManager::importCollegesFromCSV(const QString& csvPath)
         return false;
     }
 
-    m_db.transaction();
+    db.transaction();
 
     // Prepare statements once
-    QSqlQuery insertCollege(m_db);
+    QSqlQuery insertCollege(db);
     insertCollege.prepare("INSERT OR IGNORE INTO colleges (name) VALUES (?)");
     
-    QSqlQuery insertDistance(m_db);
+    QSqlQuery insertDistance(db);
     insertDistance.prepare(
         "INSERT OR REPLACE INTO distances (from_college_id, to_college_id, distance) "
         "SELECT c1.id, c2.id, :distance "
@@ -226,7 +230,7 @@ bool DBManager::importCollegesFromCSV(const QString& csvPath)
         }
     }
 
-    bool success = m_db.commit();
+    bool success = db.commit();
     file.close();
     return success;
 }
@@ -249,13 +253,13 @@ bool DBManager::importSouvenirsFromCSV(const QString& csvPath)
     file.seek(0); // Reset file position
 
     QTextStream in(&file);
-    m_db.transaction();
+    db.transaction();
 
     // Clear existing souvenirs first
-    QSqlQuery clearQuery(m_db);
+    QSqlQuery clearQuery(db);
     if (!clearQuery.exec("DELETE FROM souvenirs")) {
         qDebug() << "Failed to clear existing souvenirs:" << clearQuery.lastError().text();
-        m_db.rollback();
+        db.rollback();
         return false;
     }
 
@@ -286,20 +290,20 @@ bool DBManager::importSouvenirsFromCSV(const QString& csvPath)
             qDebug() << "  Price:" << price;
 
             // Get college ID
-            QSqlQuery query(m_db);
+            QSqlQuery query(db);
             query.prepare("SELECT id FROM colleges WHERE name = ?");
             query.addBindValue(collegeName);
             
             if (!query.exec()) {
                 qDebug() << "Failed to query college:" << query.lastError().text();
-                m_db.rollback();
+                db.rollback();
                 return false;
             }
             
             if (!query.next()) {
                 qDebug() << "WARNING: College not found in database:" << collegeName;
                 qDebug() << "Available colleges:";
-                QSqlQuery collegesQuery(m_db);
+                QSqlQuery collegesQuery(db);
                 collegesQuery.exec("SELECT name FROM colleges ORDER BY name");
                 while (collegesQuery.next()) {
                     qDebug() << "  -" << collegesQuery.value(0).toString();
@@ -319,7 +323,7 @@ bool DBManager::importSouvenirsFromCSV(const QString& csvPath)
             if (!query.exec()) {
                 qDebug() << "Failed to insert souvenir:" << souvenirName;
                 qDebug() << "Error:" << query.lastError().text();
-                m_db.rollback();
+                db.rollback();
                 return false;
             }
             
@@ -329,18 +333,18 @@ bool DBManager::importSouvenirsFromCSV(const QString& csvPath)
         }
     }
 
-    bool success = m_db.commit();
+    bool success = db.commit();
     qDebug() << "Souvenir import" << (success ? "successful" : "failed");
     return success;
 }
 
 bool DBManager::ensureConnection() const
 {
-    if (!m_db.isOpen()) {
+    if (!db.isOpen()) {
         qDebug() << "Attempting to reopen database connection";
-        const_cast<QSqlDatabase&>(m_db).open();
+        const_cast<QSqlDatabase&>(db).open();
     }
-    return m_db.isOpen();
+    return db.isOpen();
 }
 
 QVector<Campus> DBManager::getAllCampuses() const
@@ -351,7 +355,7 @@ QVector<Campus> DBManager::getAllCampuses() const
         return campuses;
     }
 
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     
     if (!query.exec("SELECT id, name FROM colleges ORDER BY name")) {
         qDebug() << "Error fetching campuses:" << query.lastError().text();
@@ -371,41 +375,68 @@ QVector<Campus> DBManager::getAllCampuses() const
 
 double DBManager::getDistance(const QString& fromCollege, const QString& toCollege) const
 {
-    QSqlQuery query(m_db);
+    if (!isOpen()) return -1;
+
+    // First get the college IDs from their names
+    QSqlQuery queryFrom(db);
+    queryFrom.prepare("SELECT id FROM colleges WHERE name = ?");
+    queryFrom.addBindValue(fromCollege);
     
-    // Try both directions in a single query
-    query.prepare(
-        "SELECT MIN(d.distance) "
-        "FROM colleges c1, colleges c2, "
-        "( "
-        "    SELECT from_college_id, to_college_id, distance FROM distances "
-        "    UNION ALL "
-        "    SELECT to_college_id, from_college_id, distance FROM distances "
-        ") d "
-        "WHERE c1.id = d.from_college_id "
-        "AND c2.id = d.to_college_id "
-        "AND c1.name = ? AND c2.name = ?"
-    );
-    
-    query.addBindValue(fromCollege);
-    query.addBindValue(toCollege);
-    
-    if (!query.exec()) {
-        qDebug() << "Error getting distance:" << query.lastError().text();
+    if (!queryFrom.exec() || !queryFrom.next()) {
+        qDebug() << "Cannot find 'from' college when getting distance:" << fromCollege;
         return -1;
     }
     
-    if (query.next() && !query.value(0).isNull()) {
-        return query.value(0).toDouble();
+    int fromCollegeId = queryFrom.value(0).toInt();
+    
+    QSqlQuery queryTo(db);
+    queryTo.prepare("SELECT id FROM colleges WHERE name = ?");
+    queryTo.addBindValue(toCollege);
+    
+    if (!queryTo.exec() || !queryTo.next()) {
+        qDebug() << "Cannot find 'to' college when getting distance:" << toCollege;
+        return -1;
     }
     
+    int toCollegeId = queryTo.value(0).toInt();
+    
+    // Now query the distance using the IDs
+    QSqlQuery distanceQuery(db);
+    distanceQuery.prepare("SELECT distance FROM distances WHERE from_college_id = ? AND to_college_id = ?");
+    distanceQuery.addBindValue(fromCollegeId);
+    distanceQuery.addBindValue(toCollegeId);
+    
+    if (!distanceQuery.exec()) {
+        qDebug() << "Error querying distance:" << distanceQuery.lastError().text();
+        return -1;
+    }
+    
+    if (distanceQuery.next() && !distanceQuery.value(0).isNull()) {
+        return distanceQuery.value(0).toDouble();
+    }
+    
+    // Try the reverse direction
+    distanceQuery.prepare("SELECT distance FROM distances WHERE from_college_id = ? AND to_college_id = ?");
+    distanceQuery.addBindValue(toCollegeId);
+    distanceQuery.addBindValue(fromCollegeId);
+    
+    if (!distanceQuery.exec()) {
+        qDebug() << "Error querying reverse distance:" << distanceQuery.lastError().text();
+        return -1;
+    }
+    
+    if (distanceQuery.next() && !distanceQuery.value(0).isNull()) {
+        return distanceQuery.value(0).toDouble();
+    }
+    
+    // No distance found in either direction
     return -1;
 }
 
 QVector<QPair<QString, double>> DBManager::getSouvenirs(const QString& collegeName) const
 {
     QVector<QPair<QString, double>> souvenirs;
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     
     query.prepare(
         "SELECT s.name, s.price "
@@ -433,7 +464,7 @@ QVector<QPair<QString, double>> DBManager::getSouvenirs(const QString& collegeNa
 
 bool DBManager::addSouvenir(const QString& collegeName, const QString& name, double price)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     
     // First get the college ID
     query.prepare("SELECT id FROM colleges WHERE name = ?");
@@ -462,7 +493,7 @@ bool DBManager::addSouvenir(const QString& collegeName, const QString& name, dou
 
 bool DBManager::updateSouvenir(const QString& collegeName, const QString& name, double price)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     
     // Update the souvenir price
     query.prepare(
@@ -486,7 +517,7 @@ bool DBManager::updateSouvenir(const QString& collegeName, const QString& name, 
 
 bool DBManager::deleteSouvenir(const QString& collegeName, const QString& name)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     
     // Delete the souvenir
     query.prepare(
@@ -507,37 +538,91 @@ bool DBManager::deleteSouvenir(const QString& collegeName, const QString& name)
     return query.numRowsAffected() > 0;
 }
 
-bool DBManager::updateDistance(const QString& fromCollege, const QString& toCollege, double newDistance)
+bool DBManager::updateDistance(const QString& fromCollege, const QString& toCollege, double distance)
 {
-    QSqlQuery query(m_db);
+    if (!isOpen()) return false;
     
-    // Update the distance in both directions since it's bidirectional
-    query.prepare(
-        "UPDATE distances "
-        "SET distance = ? "
-        "WHERE (from_college_id = (SELECT id FROM colleges WHERE name = ?) "
-        "AND to_college_id = (SELECT id FROM colleges WHERE name = ?)) "
-        "OR (from_college_id = (SELECT id FROM colleges WHERE name = ?) "
-        "AND to_college_id = (SELECT id FROM colleges WHERE name = ?))"
-    );
+    // First get the college IDs from the names
+    QSqlQuery queryFrom(db);
+    queryFrom.prepare("SELECT id FROM colleges WHERE name = ?");
+    queryFrom.addBindValue(fromCollege);
     
-    query.addBindValue(newDistance);
-    query.addBindValue(fromCollege);
-    query.addBindValue(toCollege);
-    query.addBindValue(toCollege);    // Reverse direction
-    query.addBindValue(fromCollege);  // Reverse direction
-    
-    if (!query.exec()) {
-        qDebug() << "Error updating distance:" << query.lastError().text();
+    if (!queryFrom.exec() || !queryFrom.next()) {
+        qDebug() << "Cannot find college:" << fromCollege;
+        qDebug() << "SQL error:" << queryFrom.lastError().text();
         return false;
     }
+    int fromCollegeId = queryFrom.value(0).toInt();
     
-    return query.numRowsAffected() > 0;
+    QSqlQuery queryTo(db);
+    queryTo.prepare("SELECT id FROM colleges WHERE name = ?");
+    queryTo.addBindValue(toCollege);
+    
+    if (!queryTo.exec() || !queryTo.next()) {
+        qDebug() << "Cannot find college:" << toCollege;
+        qDebug() << "SQL error:" << queryTo.lastError().text();
+        return false;
+    }
+    int toCollegeId = queryTo.value(0).toInt();
+    
+    // Now update the distance with the college IDs
+    QSqlQuery updateQuery(db);
+    updateQuery.prepare("UPDATE distances SET distance = ? WHERE from_college_id = ? AND to_college_id = ?");
+    updateQuery.addBindValue(distance);
+    updateQuery.addBindValue(fromCollegeId);
+    updateQuery.addBindValue(toCollegeId);
+    
+    bool success = updateQuery.exec();
+    if (!success || updateQuery.numRowsAffected() == 0) {
+        // The distance might not exist yet, so try to insert it
+        qDebug() << "Update failed or no rows affected. Trying to insert distance.";
+        qDebug() << "SQL error:" << updateQuery.lastError().text();
+        
+        QSqlQuery insertQuery(db);
+        insertQuery.prepare("INSERT INTO distances (from_college_id, to_college_id, distance) VALUES (?, ?, ?)");
+        insertQuery.addBindValue(fromCollegeId);
+        insertQuery.addBindValue(toCollegeId);
+        insertQuery.addBindValue(distance);
+        
+        success = insertQuery.exec();
+        if (!success) {
+            qDebug() << "Failed to insert distance:" << insertQuery.lastError().text();
+            return false;
+        }
+    }
+    
+    // Also update the reverse direction for symmetry
+    QSqlQuery reverseQuery(db);
+    reverseQuery.prepare("UPDATE distances SET distance = ? WHERE from_college_id = ? AND to_college_id = ?");
+    reverseQuery.addBindValue(distance);
+    reverseQuery.addBindValue(toCollegeId);  // Swapped IDs for reverse direction
+    reverseQuery.addBindValue(fromCollegeId); // Swapped IDs for reverse direction
+    
+    bool reverseSuccess = reverseQuery.exec();
+    if (!reverseSuccess || reverseQuery.numRowsAffected() == 0) {
+        // The reverse distance might not exist yet, so try to insert it
+        qDebug() << "Update of reverse direction failed. Trying to insert.";
+        qDebug() << "SQL error:" << reverseQuery.lastError().text();
+        
+        QSqlQuery reverseInsertQuery(db);
+        reverseInsertQuery.prepare("INSERT INTO distances (from_college_id, to_college_id, distance) VALUES (?, ?, ?)");
+        reverseInsertQuery.addBindValue(toCollegeId);
+        reverseInsertQuery.addBindValue(fromCollegeId);
+        reverseInsertQuery.addBindValue(distance);
+        
+        reverseSuccess = reverseInsertQuery.exec();
+        if (!reverseSuccess) {
+            qDebug() << "Failed to insert reverse distance:" << reverseInsertQuery.lastError().text();
+            // We'll still return true if at least the forward direction was updated
+        }
+    }
+    
+    return success;
 }
 
 bool DBManager::addCollege(const QString& name)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     query.prepare("INSERT INTO colleges (name) VALUES (?)");
     query.addBindValue(name);
     
@@ -546,7 +631,7 @@ bool DBManager::addCollege(const QString& name)
 
 bool DBManager::updateCollege(int id, const QString& newName)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     query.prepare("UPDATE colleges SET name = ? WHERE id = ?");
     query.addBindValue(newName);
     query.addBindValue(id);
@@ -556,17 +641,17 @@ bool DBManager::updateCollege(int id, const QString& newName)
 
 bool DBManager::deleteCollege(int id)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     
     // Start a transaction since we need to delete from multiple tables
-    m_db.transaction();
+    db.transaction();
     
     // Delete distances first (due to foreign key constraints)
     query.prepare("DELETE FROM distances WHERE from_college_id = ? OR to_college_id = ?");
     query.addBindValue(id);
     query.addBindValue(id);
     if (!query.exec()) {
-        m_db.rollback();
+        db.rollback();
         return false;
     }
     
@@ -574,7 +659,7 @@ bool DBManager::deleteCollege(int id)
     query.prepare("DELETE FROM souvenirs WHERE college_id = ?");
     query.addBindValue(id);
     if (!query.exec()) {
-        m_db.rollback();
+        db.rollback();
         return false;
     }
     
@@ -582,11 +667,11 @@ bool DBManager::deleteCollege(int id)
     query.prepare("DELETE FROM colleges WHERE id = ?");
     query.addBindValue(id);
     if (!query.exec()) {
-        m_db.rollback();
+        db.rollback();
         return false;
     }
     
-    return m_db.commit();
+    return db.commit();
 }
 
 bool DBManager::addCollegeWithDistances(const QString& name, const QMap<QString, double>& distances)
@@ -595,7 +680,7 @@ bool DBManager::addCollegeWithDistances(const QString& name, const QMap<QString,
     
     try {
         // First add the college
-        QSqlQuery query(m_db);
+        QSqlQuery query(db);
         query.prepare("INSERT INTO colleges (name) VALUES (?)");
         query.addBindValue(name);
         
@@ -652,16 +737,16 @@ bool DBManager::addCollegeWithDistances(const QString& name, const QMap<QString,
     }
 }
 
-bool DBManager::reloadDatabase()
+void DBManager::reloadDatabase()
 {
     // Close existing connection if open
-    if (m_db.isOpen()) {
-        m_db.close();
+    if (db.isOpen()) {
+        db.close();
     }
 
     // Remove the old connection if it exists
-    QString connectionName = m_db.connectionName();
-    m_db = QSqlDatabase(); // destroy old connection
+    QString connectionName = db.connectionName();
+    db = QSqlDatabase(); // destroy old connection
     if (QSqlDatabase::contains(connectionName)) {
         QSqlDatabase::removeDatabase(connectionName);
     }
@@ -669,25 +754,23 @@ bool DBManager::reloadDatabase()
     // Create a new connection with a unique name
     static int connectionCounter = 0;
     QString newConnectionName = QString("CAMPUS_CONNECTION_%1").arg(++connectionCounter);
-    m_db = QSqlDatabase::addDatabase("QSQLITE", newConnectionName);
-    m_db.setDatabaseName(m_dbPath);
+    db = QSqlDatabase::addDatabase("QSQLITE", newConnectionName);
+    db.setDatabaseName(dbPath);
 
-    if (!m_db.open()) {
-        qDebug() << "Failed to reload database at:" << m_dbPath;
-        qDebug() << "Error:" << m_db.lastError().text();
-        return false;
+    if (!db.open()) {
+        qDebug() << "Failed to reload database at:" << dbPath;
+        qDebug() << "Error:" << db.lastError().text();
+        return;
     }
 
     // Enable foreign keys
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     query.exec("PRAGMA foreign_keys = ON");
-
-    return true;
 }
 
 void DBManager::debugPrintSouvenirs() const
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     if (!query.exec("SELECT c.name, s.name, s.price FROM colleges c "
                    "LEFT JOIN souvenirs s ON c.id = s.college_id "
                    "ORDER BY c.name, s.name")) {
@@ -729,7 +812,7 @@ QVector<DBManager::UserInfo> DBManager::getAllUsers() const
     
     QVector<UserInfo> users;
     
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     query.exec("SELECT id, username, password, is_admin FROM users");
     
     while (query.next()) {
@@ -757,7 +840,7 @@ bool DBManager::addUser(const QString& username, const QString& password, bool i
             password.toUtf8(), QCryptographicHash::Sha256).toHex());
         qDebug() << "Password hashed, length:" << passwordHash.length();
         
-        QSqlQuery query(m_db);
+        QSqlQuery query(db);
         query.prepare("INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)");
         query.addBindValue(username);
         query.addBindValue(passwordHash);
@@ -784,7 +867,7 @@ bool DBManager::updateUser(const QString& userId, const QString& newUsername, co
 {
     qDebug() << "Updating user ID:" << userId;
     
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     
     // If a new password is provided, update it too
     if (!newPassword.isEmpty()) {
@@ -818,7 +901,7 @@ bool DBManager::deleteUser(const QString& userId)
 {
     qDebug() << "Deleting user ID:" << userId;
     
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     query.prepare("DELETE FROM users WHERE id = ?");
     query.addBindValue(userId);
     
@@ -835,7 +918,7 @@ bool DBManager::deleteUser(const QString& userId)
 bool DBManager::isOriginalAdmin(const QString& id) const
 {
     // Check if this is the original admin user
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     query.prepare("SELECT id FROM users WHERE username = 'admin' LIMIT 1");
     
     if (query.exec() && query.next()) {
@@ -854,7 +937,7 @@ bool DBManager::validateUser(const QString& username, const QString& password, b
     QString passwordHash = QString(QCryptographicHash::hash(
         password.toUtf8(), QCryptographicHash::Sha256).toHex());
     
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     query.prepare("SELECT is_admin FROM users WHERE username = ? AND password = ?");
     query.addBindValue(username);
     query.addBindValue(passwordHash);
@@ -877,7 +960,7 @@ bool DBManager::validateUser(const QString& username, const QString& password)
 
 bool DBManager::userExists(const QString& username)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     query.prepare("SELECT COUNT(*) FROM users WHERE username = ?");
     query.addBindValue(username);
     
@@ -890,7 +973,7 @@ bool DBManager::userExists(const QString& username)
 
 bool DBManager::isUserAdmin(const QString& username)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     query.prepare("SELECT is_admin FROM users WHERE username = ?");
     query.addBindValue(username);
     
@@ -920,10 +1003,107 @@ bool DBManager::validateCredentials(const QString& username, const QString& pass
 
 bool DBManager::executeSQL(const QString& sql)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     bool success = query.exec(sql);
     if (!success) {
         qDebug() << "SQL Error:" << query.lastError().text();
     }
+    return success;
+}
+
+bool DBManager::campusExists(const QString& name)
+{
+    if (!isOpen()) return false;
+    
+    QSqlQuery query(db);
+    query.prepare("SELECT COUNT(*) FROM colleges WHERE name = ?");
+    query.addBindValue(name);
+    
+    if (query.exec() && query.next()) {
+        return query.value(0).toInt() > 0;
+    }
+    
+    return false;
+}
+
+bool DBManager::addCampus(const QString& name)
+{
+    if (!isOpen()) return false;
+    
+    // Check if the campus already exists
+    if (campusExists(name)) {
+        qDebug() << "Campus already exists:" << name;
+        return false;
+    }
+    
+    QSqlQuery query(db);
+    query.prepare("INSERT INTO colleges (name) VALUES (?)");
+    query.addBindValue(name);
+    
+    bool success = query.exec();
+    if (!success) {
+        qDebug() << "Failed to add campus:" << query.lastError().text();
+    }
+    
+    return success;
+}
+
+bool DBManager::addDistance(const QString& fromCollege, const QString& toCollege, double distance)
+{
+    if (!isOpen()) return false;
+    
+    // Get college IDs from their names
+    // From college ID
+    QSqlQuery queryFrom(db);
+    queryFrom.prepare("SELECT id FROM colleges WHERE name = ?");
+    queryFrom.addBindValue(fromCollege);
+    
+    if (!queryFrom.exec() || !queryFrom.next()) {
+        qDebug() << "Cannot find 'from' college:" << fromCollege;
+        qDebug() << "Error:" << queryFrom.lastError().text();
+        return false;
+    }
+    
+    int fromCollegeId = queryFrom.value(0).toInt();
+    
+    // To college ID
+    QSqlQuery queryTo(db);
+    queryTo.prepare("SELECT id FROM colleges WHERE name = ?");
+    queryTo.addBindValue(toCollege);
+    
+    if (!queryTo.exec() || !queryTo.next()) {
+        qDebug() << "Cannot find 'to' college:" << toCollege;
+        qDebug() << "Error:" << queryTo.lastError().text();
+        return false;
+    }
+    
+    int toCollegeId = queryTo.value(0).toInt();
+    
+    // Now we have both college IDs, insert the distance
+    QSqlQuery insertQuery(db);
+    insertQuery.prepare("INSERT OR REPLACE INTO distances (from_college_id, to_college_id, distance) VALUES (?, ?, ?)");
+    insertQuery.addBindValue(fromCollegeId);
+    insertQuery.addBindValue(toCollegeId);
+    insertQuery.addBindValue(distance);
+    
+    bool success = insertQuery.exec();
+    if (!success) {
+        qDebug() << "Failed to add distance:" << insertQuery.lastError().text();
+        return false;
+    }
+    
+    // Also add the reverse direction for symmetry
+    QSqlQuery reverseQuery(db);
+    reverseQuery.prepare("INSERT OR REPLACE INTO distances (from_college_id, to_college_id, distance) VALUES (?, ?, ?)");
+    reverseQuery.addBindValue(toCollegeId);
+    reverseQuery.addBindValue(fromCollegeId);
+    reverseQuery.addBindValue(distance);
+    
+    bool reverseSuccess = reverseQuery.exec();
+    if (!reverseSuccess) {
+        qDebug() << "Failed to add reverse distance:" << reverseQuery.lastError().text();
+        // We'll still return true if at least the forward direction was added
+    }
+    
     return success;
 } 

@@ -109,3 +109,23 @@ University of Wisconsin,"University of California Irvine (UCI)",1978,,,,
 University of Wisconsin,"University of California Los Angeles (UCLA)",1991,,,,
 University of Wisconsin,University of Oregon,2111,,,,
 University of Wisconsin,University of the Pacific,2052,,,,
+"University of Arizona","University of California, Los Angeles",456
+"University of Arizona","University of Oregon",1148
+"University of Arizona","University of Michigan",1975
+"University of Arizona","Ohio State University",1940
+"University of California, Los Angeles","University of Arizona",456
+"University of California, Los Angeles","University of Oregon",935
+"University of California, Los Angeles","University of Michigan",2295
+"University of California, Los Angeles","Ohio State University",2248
+"University of Oregon","University of Arizona",1148
+"University of Oregon","University of California, Los Angeles",935
+"University of Oregon","University of Michigan",2142
+"University of Oregon","Ohio State University",2302
+"University of Michigan","University of Arizona",1975
+"University of Michigan","University of California, Los Angeles",2295
+"University of Michigan","University of Oregon",2142
+"University of Michigan","Ohio State University",278
+"Ohio State University","University of Arizona",1940
+"Ohio State University","University of California, Los Angeles",2248
+"Ohio State University","University of Oregon",2302
+"Ohio State University","University of Michigan",278

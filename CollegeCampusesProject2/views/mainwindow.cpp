@@ -16,6 +16,10 @@
 #include <QHBoxLayout>
 #include <QGroupBox>
 #include <QSpacerItem>
+#include <QTextBrowser>
+#include <QtPrintSupport/QPrinter>
+#include <QtPrintSupport/QPrintDialog>
+#include <QDialog>
 
 MainWindow::MainWindow(DBManager* db, bool isAdmin, QWidget *parent)
     : QMainWindow(parent)
@@ -105,7 +109,7 @@ MainWindow::MainWindow(DBManager* db, bool isAdmin, QWidget *parent)
     setupSouvenirsTab();
     
     // Initialize trip planner tab
-    setupTripPlannerTab();
+    setupTripPlanner();
     
     // Delay connecting signals until the window is shown
     QTimer::singleShot(100, this, [this]() {
@@ -403,6 +407,50 @@ void MainWindow::setupTripPlanner()
     // Connect the Reset Trip button that's now in the UI file
     connect(ui->resetTripButton, &QPushButton::clicked, this, &MainWindow::resetTrip);
     
+    // FIRST: Check for and remove any existing "Selected Souvenirs" group boxes
+    QList<QGroupBox*> existingGroups = ui->tripPlannerTab->findChildren<QGroupBox*>();
+    for (QGroupBox* group : existingGroups) {
+        if (group->title() == "Selected Souvenirs") {
+            qDebug() << "Removing existing Selected Souvenirs group";
+            delete group; // This will also delete all child widgets
+        }
+    }
+    
+    // Create a group box for selected souvenirs
+    QGroupBox* selectedSouvenirsGroup = new QGroupBox("Selected Souvenirs");
+    QVBoxLayout* groupLayout = new QVBoxLayout(selectedSouvenirsGroup);
+    
+    // Create a table for selected souvenirs
+    tripSouvenirsTable = new QTableWidget(selectedSouvenirsGroup);
+    tripSouvenirsTable->setColumnCount(6); // College, Name, Price, Quantity, Total, Action
+    tripSouvenirsTable->setHorizontalHeaderLabels({"College", "Souvenir", "Price", "Quantity", "Total", "Action"});
+    tripSouvenirsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    tripSouvenirsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    groupLayout->addWidget(tripSouvenirsTable);
+    
+    // Add a label for total cost
+    totalCostLabel = new QLabel("Total Cost: $0.00");
+    totalCostLabel->setAlignment(Qt::AlignRight);
+    totalCostLabel->setFont(QFont("", 12, QFont::Bold));
+    groupLayout->addWidget(totalCostLabel);
+    
+    // Add a Trip Summary Report button to the Trip Planner tab
+    QPushButton* generateReportButton = new QPushButton("Generate Trip Summary Report");
+    generateReportButton->setStyleSheet("background-color: #2a5c8e; color: white; padding: 8px 16px; font-weight: bold;");
+    connect(generateReportButton, &QPushButton::clicked, this, &MainWindow::generateTripSummaryReport);
+    
+    // Add the button to the souvenirs group layout
+    groupLayout->addWidget(generateReportButton);
+    
+    // Get the layout of the Trip Planner tab or create one if it doesn't exist
+    QVBoxLayout* tabLayout = qobject_cast<QVBoxLayout*>(ui->tripPlannerTab->layout());
+    if (!tabLayout) {
+        tabLayout = new QVBoxLayout(ui->tripPlannerTab);
+    }
+    
+    // Add the souvenirs group to the tab layout
+    tabLayout->addWidget(selectedSouvenirsGroup);
+    
     // Allow double-click to add colleges to trip
     connect(ui->allCollegesList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
         QList<QListWidgetItem*> items;
@@ -434,6 +482,9 @@ void MainWindow::setupTripPlanner()
     // Load all colleges and update highlighting
     loadAllColleges();
     updateTripCollegeHighlighting();
+    
+    // Initial update of the souvenirs display
+    onSouvenirTripChanged();
 }
 
 void MainWindow::loadAllColleges()
@@ -809,49 +860,6 @@ void MainWindow::setupSouvenirsTab()
     }
 }
 
-void MainWindow::setupTripPlannerTab()
-{
-    // Check if trip planner tab exists
-    if (!ui->tripPlannerTab) {
-        qDebug() << "Trip planner tab not found in UI, unable to setup.";
-        return;
-    }
-    
-    // Create a group box for selected souvenirs
-    QGroupBox* selectedSouvenirsGroup = new QGroupBox("Selected Souvenirs");
-    QVBoxLayout* groupLayout = new QVBoxLayout(selectedSouvenirsGroup);
-    
-    // Create a table for selected souvenirs
-    tripSouvenirsTable = new QTableWidget(selectedSouvenirsGroup);
-    tripSouvenirsTable->setColumnCount(6); // College, Name, Price, Quantity, Total, Action
-    tripSouvenirsTable->setHorizontalHeaderLabels({"College", "Souvenir", "Price", "Quantity", "Total", "Action"});
-    tripSouvenirsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    tripSouvenirsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    groupLayout->addWidget(tripSouvenirsTable);
-    
-    // Add a label for total cost
-    totalCostLabel = new QLabel("Total Cost: $0.00");
-    totalCostLabel->setAlignment(Qt::AlignRight);
-    totalCostLabel->setFont(QFont("", 12, QFont::Bold));
-    groupLayout->addWidget(totalCostLabel);
-    
-    // Add the group box to the tab
-    QVBoxLayout* tabLayout = nullptr;
-    
-    // Check if there's already a layout
-    if (ui->tripPlannerTab->layout()) {
-        tabLayout = qobject_cast<QVBoxLayout*>(ui->tripPlannerTab->layout());
-    } else {
-        tabLayout = new QVBoxLayout(ui->tripPlannerTab);
-    }
-    
-    // Add the souvenirs group to the layout
-    tabLayout->addWidget(selectedSouvenirsGroup);
-    
-    // Update the selected souvenirs display
-    onSouvenirTripChanged();
-}
-
 void MainWindow::on_collegeComboBox_currentIndexChanged(int index)
 {
     if (index <= 0) { // "Select a college" or invalid index
@@ -941,7 +949,10 @@ void MainWindow::removeSouvenirFromTrip()
 
 void MainWindow::onSouvenirTripChanged()
 {
-    if (!tripSouvenirsTable) return;
+    if (!tripSouvenirsTable) {
+        qDebug() << "Error: tripSouvenirsTable is null in onSouvenirTripChanged()";
+        return;
+    }
     
     // Get the souvenirs and update the table
     QVector<SouvenirTripManager::TripSouvenir> souvenirs = souvenirTripManager->getSouvenirs();
@@ -1008,4 +1019,158 @@ void MainWindow::onSouvenirsChanged()
 void MainWindow::onDistancesChanged()
 {
     // Reload any distance-related data if needed
+}
+
+// Format the trip summary into a readable text report
+QString MainWindow::formatTripSummary() const
+{
+    QString summary;
+    
+    // Title
+    summary += "<h2 style='text-align: center;'>Trip Summary Report</h2>";
+    summary += "<hr>";
+    
+    // 1. Campuses Visited Section
+    summary += "<h3>Campuses Visited</h3>";
+    
+    if (ui->tripCollegesList->count() == 0) {
+        summary += "<p>No campuses have been added to your trip.</p>";
+    } else {
+        summary += "<ol>";
+        for (int i = 0; i < ui->tripCollegesList->count(); i++) {
+            summary += QString("<li>%1</li>").arg(ui->tripCollegesList->item(i)->text());
+        }
+        summary += "</ol>";
+    }
+    
+    summary += "<hr>";
+    
+    // 2. Route Details Section
+    summary += "<h3>Travel Route</h3>";
+    
+    if (ui->tripCollegesList->count() <= 1) {
+        summary += "<p>At least two campuses are needed to calculate a route.</p>";
+    } else {
+        summary += "<table width='100%' border='1' cellspacing='0' cellpadding='5'>";
+        summary += "<tr><th>From</th><th>To</th><th>Distance (miles)</th></tr>";
+        
+        double totalDistance = 0;
+        
+        for (int i = 0; i < ui->tripCollegesList->count() - 1; i++) {
+            QString from = ui->tripCollegesList->item(i)->text();
+            QString to = ui->tripCollegesList->item(i + 1)->text();
+            double distance = dbManager->getDistance(from, to);
+            totalDistance += distance;
+            
+            summary += QString("<tr><td>%1</td><td>%2</td><td align='right'>%3</td></tr>")
+                       .arg(from)
+                       .arg(to)
+                       .arg(distance);
+        }
+        
+        summary += QString("<tr><th colspan='2'>Total Distance:</th><th align='right'>%1 miles</th></tr>")
+                   .arg(totalDistance);
+        summary += "</table>";
+    }
+    
+    summary += "<hr>";
+    
+    // 3. Souvenirs Purchased Section
+    summary += "<h3>Souvenirs Purchased</h3>";
+    
+    QVector<SouvenirTripManager::TripSouvenir> souvenirs = souvenirTripManager->getSouvenirs();
+    
+    if (souvenirs.isEmpty()) {
+        summary += "<p>No souvenirs have been added to your trip.</p>";
+    } else {
+        summary += "<table width='100%' border='1' cellspacing='0' cellpadding='5'>";
+        summary += "<tr><th>College</th><th>Souvenir</th><th>Price</th><th>Quantity</th><th>Total</th></tr>";
+        
+        double totalSouvenirCost = 0;
+        
+        for (const auto& souvenir : souvenirs) {
+            double itemTotal = souvenir.price * souvenir.quantity;
+            totalSouvenirCost += itemTotal;
+            
+            summary += QString("<tr><td>%1</td><td>%2</td><td align='right'>$%3</td><td align='center'>%4</td><td align='right'>$%5</td></tr>")
+                       .arg(souvenir.collegeName)
+                       .arg(souvenir.name)
+                       .arg(souvenir.price, 0, 'f', 2)
+                       .arg(souvenir.quantity)
+                       .arg(itemTotal, 0, 'f', 2);
+        }
+        
+        summary += QString("<tr><th colspan='4'>Total Souvenir Cost:</th><th align='right'>$%1</th></tr>")
+                   .arg(totalSouvenirCost, 0, 'f', 2);
+        summary += "</table>";
+    }
+    
+    // 4. Summary Section
+    summary += "<hr>";
+    summary += "<h3>Trip Summary</h3>";
+    
+    int totalCampuses = ui->tripCollegesList->count();
+    
+    // Calculate total distance
+    double totalDistance = 0;
+    for (int i = 0; i < ui->tripCollegesList->count() - 1; i++) {
+        QString from = ui->tripCollegesList->item(i)->text();
+        QString to = ui->tripCollegesList->item(i + 1)->text();
+        totalDistance += dbManager->getDistance(from, to);
+    }
+    
+    // Calculate total souvenir cost
+    double totalSouvenirCost = souvenirTripManager->getTotalCost();
+    
+    summary += "<table width='100%' border='1' cellspacing='0' cellpadding='5'>";
+    summary += QString("<tr><td><b>Total Campuses Visited:</b></td><td align='right'>%1</td></tr>").arg(totalCampuses);
+    summary += QString("<tr><td><b>Total Distance:</b></td><td align='right'>%1 miles</td></tr>").arg(totalDistance);
+    summary += QString("<tr><td><b>Total Souvenir Cost:</b></td><td align='right'>$%1</td></tr>").arg(totalSouvenirCost, 0, 'f', 2);
+    summary += "</table>";
+    
+    return summary;
+}
+
+void MainWindow::generateTripSummaryReport()
+{
+    // Create a dialog to display the report
+    QDialog* reportDialog = new QDialog(this);
+    reportDialog->setWindowTitle("Trip Summary Report");
+    reportDialog->setMinimumSize(800, 600);
+    
+    // Create a text browser to display the report with HTML formatting
+    QTextBrowser* reportBrowser = new QTextBrowser(reportDialog);
+    reportBrowser->setOpenExternalLinks(false);
+    reportBrowser->setHtml(formatTripSummary());
+    
+    // Add print and close buttons
+    QPushButton* printButton = new QPushButton("Print Report", reportDialog);
+    QPushButton* closeButton = new QPushButton("Close", reportDialog);
+    
+    // Connect the buttons
+    connect(printButton, &QPushButton::clicked, [reportBrowser]() {
+        QPrinter printer;
+        QPrintDialog printDialog(&printer);
+        if (printDialog.exec() == QDialog::Accepted) {
+            reportBrowser->print(&printer);
+        }
+    });
+    
+    connect(closeButton, &QPushButton::clicked, reportDialog, &QDialog::accept);
+    
+    // Create layouts
+    QVBoxLayout* mainLayout = new QVBoxLayout(reportDialog);
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    
+    // Add widgets to layouts
+    mainLayout->addWidget(reportBrowser);
+    buttonLayout->addWidget(printButton);
+    buttonLayout->addWidget(closeButton);
+    mainLayout->addLayout(buttonLayout);
+    
+    // Show the dialog
+    reportDialog->exec();
+    
+    // Clean up
+    delete reportDialog;
 } 

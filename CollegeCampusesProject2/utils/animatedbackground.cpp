@@ -5,12 +5,16 @@
 #include <QDebug>
 #include <QtMath>
 
+// Define constants
+const int ANIMATION_DURATION = 10000; // 10 seconds per cycle
+const int WAVE_COUNT = 4;
+
 AnimatedBackground::AnimatedBackground(QWidget *parent)
     : QWidget(parent)
-    , m_phase(0.0)
-    , m_animationGroup(new QParallelAnimationGroup(this))
-    , m_phaseAnimation(new QPropertyAnimation(this, "phase", this))
-    , m_waveCount(WAVE_COUNT)
+    , m_currentColor(Qt::white)
+    , m_animation(new QPropertyAnimation(this, "currentColor", this))
+    , m_currentIndex(0)
+    , m_timer(new QTimer(this))
 {
     // Set default colors if none provided
     if (m_colors.isEmpty()) {
@@ -27,17 +31,11 @@ AnimatedBackground::AnimatedBackground(QWidget *parent)
         resize(parent->size());
     }
 
-    // Initialize animations
-    initializeAnimations();
+    setupAnimation();
     
-    // Create initial wave paths
-    createWavePaths();
-    
-    // This widget should be in the background
-    lower();
-    
-    // Start animation immediately
-    startAnimation();
+    // Connect timer to change colors
+    connect(m_timer, &QTimer::timeout, this, &AnimatedBackground::nextColor);
+    m_timer->setInterval(ANIMATION_DURATION);
 }
 
 AnimatedBackground::~AnimatedBackground()
@@ -45,73 +43,63 @@ AnimatedBackground::~AnimatedBackground()
     stopAnimation();
 }
 
-void AnimatedBackground::setColors(const QVector<QColor>& colors)
+void AnimatedBackground::setColors(const QList<QColor>& colors)
 {
     if (!colors.isEmpty()) {
         m_colors = colors;
+        m_currentIndex = 0;
+        m_currentColor = m_colors.first();
+        setupAnimation();
         update();
     }
 }
 
-void AnimatedBackground::initializeAnimations()
+void AnimatedBackground::setupAnimation()
 {
-    // Phase animation (0.0 to 1.0)
-    m_phaseAnimation->setStartValue(0.0);
-    m_phaseAnimation->setEndValue(1.0);
-    m_phaseAnimation->setDuration(ANIMATION_DURATION);
-    m_phaseAnimation->setLoopCount(-1); // Infinite loop
+    if (m_colors.size() < 2) return;
     
-    // Add to animation group
-    m_animationGroup->addAnimation(m_phaseAnimation);
+    m_animation->setDuration(ANIMATION_DURATION);
+    m_animation->setEasingCurve(QEasingCurve::InOutQuad);
+    
+    // Set the next color as the end value
+    int nextIndex = (m_currentIndex + 1) % m_colors.size();
+    m_animation->setStartValue(m_currentColor);
+    m_animation->setEndValue(m_colors[nextIndex]);
 }
 
 void AnimatedBackground::startAnimation()
 {
-    m_animationGroup->start();
+    if (m_colors.size() < 2) return;
+    
+    m_animation->start();
+    m_timer->start();
 }
 
 void AnimatedBackground::stopAnimation()
 {
-    m_animationGroup->stop();
+    m_animation->stop();
+    m_timer->stop();
 }
 
-void AnimatedBackground::setPhase(qreal phase)
+QColor AnimatedBackground::currentColor() const
 {
-    m_phase = phase;
-    update(); // Trigger repaint when phase changes
+    return m_currentColor;
 }
 
-void AnimatedBackground::createWavePaths()
+void AnimatedBackground::setCurrentColor(const QColor& color)
 {
-    m_wavePaths.clear();
+    m_currentColor = color;
+    update();
+}
+
+void AnimatedBackground::nextColor()
+{
+    // Move to next color in the list
+    m_currentIndex = (m_currentIndex + 1) % m_colors.size();
     
-    QSize size = this->size();
-    qreal width = size.width();
-    qreal height = size.height();
-    
-    // Create waves with different amplitudes and frequencies
-    for (int i = 0; i < m_waveCount; i++) {
-        QPainterPath path;
-        
-        // Different parameters for each wave
-        qreal amplitude = height * 0.05 * (i + 1);
-        qreal frequency = 1.0 + i * 0.2;
-        qreal yBase = height * (0.2 + i * 0.15);
-        
-        path.moveTo(0, yBase);
-        
-        for (qreal x = 0; x <= width; x += 2) {
-            qreal y = yBase + amplitude * qSin(frequency * (x / width) * 2 * M_PI);
-            path.lineTo(x, y);
-        }
-        
-        // Close the path by drawing to the bottom corners
-        path.lineTo(width, height);
-        path.lineTo(0, height);
-        path.closeSubpath();
-        
-        m_wavePaths.append(path);
-    }
+    // Update animation to transition to the next color
+    setupAnimation();
+    m_animation->start();
 }
 
 void AnimatedBackground::paintEvent(QPaintEvent *event)
@@ -121,34 +109,21 @@ void AnimatedBackground::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     
-    // Fill background with first color
-    if (!m_colors.isEmpty()) {
-        painter.fillRect(rect(), m_colors.first());
-    }
+    // Paint background with current color
+    painter.fillRect(rect(), m_currentColor);
     
-    // Draw each wave
-    for (int i = 0; i < m_wavePaths.size(); i++) {
-        QPainterPath path = m_wavePaths.at(i);
-        
-        // Transform the path based on animation phase
-        QTransform transform;
-        qreal phaseOffset = m_phase * (i % 2 == 0 ? 1.0 : -0.7); // Alternate directions
-        transform.translate(width() * phaseOffset, 0);
-        QPainterPath transformedPath = transform.map(path);
-        
-        // Use appropriate color from the palette
-        int colorIndex = qMin(i + 1, m_colors.size() - 1);
-        QColor waveColor = m_colors.at(colorIndex);
-        
-        // Increase opacity for dark mode visibility
-        waveColor.setAlpha(220); // More visible in dark mode
-        
-        painter.fillPath(transformedPath, waveColor);
-    }
+    // Add a gradient effect
+    QLinearGradient gradient(rect().topLeft(), rect().bottomRight());
+    gradient.setColorAt(0, m_currentColor);
+    QColor endColor = m_currentColor;
+    endColor.setAlpha(150); // More transparent
+    gradient.setColorAt(1, endColor);
+    
+    painter.fillRect(rect(), gradient);
 }
 
 void AnimatedBackground::resizeEvent(QResizeEvent *event)
 {
-    Q_UNUSED(event);
-    createWavePaths(); // Recreate paths when resized
+    QWidget::resizeEvent(event);
+    update();
 } 

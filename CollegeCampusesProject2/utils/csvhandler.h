@@ -9,7 +9,7 @@
 class CSVHandler {
 public:
     static const QString USER_FILE;
-    static bool writeUsers(const QString& filename, const QVector<User>& users);
+    static bool writeUsers(const QString& filename, QVector<User>& users);
     static QVector<User> readUsers(const QString& filename);
     static QString hashPassword(const QString& password);
     static bool validateUser(const QString& username, const QString& password);
